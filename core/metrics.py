@@ -16,30 +16,25 @@ def envelope_variance(squeezing_db: float) -> float:
     return math.exp(-2 * r)
 
 
+def gkp_lattice_spacing() -> float:
+    """Period of the GKP position lattice (natural units)."""
+    return math.sqrt(2 * math.pi)
+
+
 def gkp_cell_half_width() -> float:
-    """Half-width of a GKP lattice cell in position quadrature (natural units)."""
-    return math.sqrt(math.pi) / 2
+    """Half-width of one GKP cell; peaks sit at n * lattice_spacing."""
+    return gkp_lattice_spacing() / 2
 
 
-def logical_error_probability(
-    displacement_std: float,
-    cell_half_width: float,
-    noise_p: float,
-) -> float:
+def fidelity_error_threshold(noise_p: float, squeezing_db: float) -> float:
     """
-    Approximate per-qubit logical error probability from displacement noise.
+    Minimum codeword fidelity before counting a QuTiP physical error.
 
-    Combines envelope leakage outside the GKP cell with an independent
-    depolarizing-like channel probability ``noise_p``.
+    Fixed bar so error counting reflects QuTiP fidelity degradation from
+    the channel; noise_p drives displacement magnitude separately.
     """
-    if displacement_std <= 0:
-        envelope_leak = 0.0
-    else:
-        # Tail mass outside ±cell_half_width under Gaussian displacement.
-        z = cell_half_width / displacement_std
-        envelope_leak = math.erfc(z / math.sqrt(2))
-
-    return min(1.0, max(0.0, 1.0 - (1.0 - envelope_leak) * (1.0 - noise_p)))
+    # Wider peaks (low squeeze) fail fidelity sooner; threshold leniency tracks envelope.
+    return max(0.5, 0.93 + 0.08 * envelope_variance(squeezing_db))
 
 
 def surface_logical_rate(physical_rate: float, distance: int = 3) -> float:
