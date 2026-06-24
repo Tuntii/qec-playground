@@ -113,7 +113,7 @@ def _display_results(result: dict[str, Any], params: Any, *, compare_focus: bool
     st.subheader("Export")
     df = results_to_dataframe(result, params)
     csv_bytes = dataframe_to_csv(df)
-    share_url = build_share_url(params)
+    share_url = build_share_url(params)  # honors QEC_DEMO_BASE_URL when set
     share_token = encode_config_payload(params)
 
     st.download_button(

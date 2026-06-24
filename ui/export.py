@@ -65,10 +65,21 @@ def build_share_query(params: SimulationParams) -> dict[str, str | int | float]:
     }
 
 
-def build_share_url(params: SimulationParams, base_url: str = "http://localhost:8501") -> str:
+def default_share_base_url() -> str:
+    """Resolve share-link base from QEC_DEMO_BASE_URL or localhost default."""
+    import os
+
+    return os.environ.get("QEC_DEMO_BASE_URL", "http://localhost:8501").rstrip("/")
+
+
+def build_share_url(
+    params: SimulationParams,
+    base_url: str | None = None,
+) -> str:
     """Build a shareable URL encoding current simulation parameters."""
     query = build_share_query(params)
-    return f"{base_url}?{urlencode(query)}"
+    root = (base_url or default_share_base_url()).rstrip("/")
+    return f"{root}?{urlencode(query)}"
 
 
 def encode_config_payload(params: SimulationParams) -> str:

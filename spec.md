@@ -30,7 +30,8 @@
 ### MVP Durum (25 Haziran 2026)
 - **Çekirdek:** `core/simulator.py`, `core/decoder.py` — QuTiP GKP + speculative/naive karşılaştırma
 - **UI:** `streamlit run app.py` — slider’lar, 5 template, QASM import, Plotly grafikler, export
-- **CLI:** `python app.py` — headless metin çıktısı (deploy / README sonraki adım)
+- **CLI:** `python app.py` — headless metin çıktısı
+- **Launch:** `README.md`, `assets/hero.png`, `.streamlit/config.toml`, HF/Streamlit Cloud deploy hazır (`QEC_DEMO_BASE_URL` share linkleri)
 
 ### v1.0 (Sonraki 1 hafta)
 - Karşılaştırma modu (distance-5 vs distance-7)
