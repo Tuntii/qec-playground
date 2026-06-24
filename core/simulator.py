@@ -158,7 +158,9 @@ def run_simulation(
     skip_threshold: float = 0.7,
     shots: int = 1000,
     window_size: int = 4,
+    surface_distance: int = 3,
     seed: int = 42,
+    include_syndromes: bool = False,
 ) -> dict[str, Any]:
     """
     Run combined GKP + speculative decoder simulation.
@@ -171,6 +173,7 @@ def run_simulation(
         squeezing_db=squeezing_db,
         noise_p=noise_p,
         shots=shots,
+        surface_distance=surface_distance,
         seed=seed,
     )
     decoder = compare_decoders(
@@ -181,7 +184,7 @@ def run_simulation(
         physical_error_rate=gkp["physical_error_rate"],
         seed=seed,
     )
-    return {
+    payload: dict[str, Any] = {
         "gkp": {k: v for k, v in gkp.items() if k != "syndromes"},
         "decoder": decoder,
         "params": {
@@ -190,6 +193,10 @@ def run_simulation(
             "skip_threshold": skip_threshold,
             "shots": shots,
             "window_size": window_size,
+            "surface_distance": surface_distance,
             "seed": seed,
         },
     }
+    if include_syndromes:
+        payload["syndromes"] = gkp["syndromes"]
+    return payload
