@@ -145,8 +145,13 @@ def _display_results(result: dict[str, Any], params: Any, *, compare_focus: bool
 def run_streamlit() -> None:
     import streamlit as st
 
-    from ui.bootstrap import circuit_name_from_query, take_query_restore
-    from ui.circuit_loader import list_templates, parse_qasm
+    from ui.bootstrap import (
+        clear_qasm_state,
+        init_circuit_select_from_query,
+        resolve_active_template,
+        take_query_restore,
+    )
+    from ui.circuit_loader import list_templates
     from ui.sliders import render_sidebar
 
     st.set_page_config(page_title="QEC-Playground", page_icon="⚛️", layout="wide")
@@ -159,35 +164,46 @@ def run_streamlit() -> None:
     template_by_name = {t.name: t for t in templates}
     template_names = list(template_by_name.keys())
     query_restore = take_query_restore(st.session_state, dict(st.query_params))
-
-    if "selected_circuit_name" not in st.session_state:
-        st.session_state["selected_circuit_name"] = circuit_name_from_query(
-            templates,
-            dict(st.query_params),
-        )
+    init_circuit_select_from_query(
+        st.session_state,
+        templates,
+        query_restore,
+        widget_key="circuit_select",
+    )
 
     st.subheader("Circuit")
     col_circuit, col_meta = st.columns([2, 1])
     with col_circuit:
+        def _on_circuit_change() -> None:
+            clear_qasm_state(st.session_state)
+
         selected_name = st.selectbox(
             "Built-in GKP-surface template",
             options=template_names,
-            index=template_names.index(st.session_state["selected_circuit_name"]),
             key="circuit_select",
+            on_change=_on_circuit_change,
         )
-        st.session_state["selected_circuit_name"] = selected_name
-        template = template_by_name[selected_name]
+        use_qasm = st.checkbox(
+            "Override with QASM import",
+            key="use_qasm_import",
+        )
         qasm_text = st.text_area(
             "QASM import (optional)",
             height=100,
             placeholder="Paste OpenQASM 2.0 to override template metadata…",
+            key="qasm_text",
+            disabled=not use_qasm,
         )
-        if qasm_text.strip():
-            try:
-                template = parse_qasm(qasm_text)
-                st.success("QASM parsed — using imported circuit metadata.")
-            except ValueError as exc:
-                st.error(str(exc))
+        template, qasm_error = resolve_active_template(
+            template_by_name,
+            selected_name,
+            use_qasm=use_qasm,
+            qasm_text=qasm_text,
+        )
+        if use_qasm and qasm_text.strip() and qasm_error is None:
+            st.success("QASM parsed — using imported circuit metadata.")
+        elif qasm_error:
+            st.error(qasm_error)
 
     with col_meta:
         st.markdown(f"**Distance:** {template.surface_distance}")

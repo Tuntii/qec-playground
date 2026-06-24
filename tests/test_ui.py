@@ -4,7 +4,12 @@ import pytest
 
 from core.simulator import run_simulation
 from ui.circuit_loader import list_templates, load_template_by_id, parse_qasm
-from ui.bootstrap import circuit_name_from_query, take_query_restore
+from ui.bootstrap import (
+    circuit_name_from_query,
+    init_circuit_select_from_query,
+    resolve_active_template,
+    take_query_restore,
+)
 from ui.export import (
     build_share_url,
     dataframe_to_csv,
@@ -138,3 +143,45 @@ def test_take_query_restore_once(capsys):
     print(f"query_restore_first: {first is not None} second: {second is None}")
     assert first == q
     assert second is None
+
+
+def test_init_circuit_select_from_query(capsys):
+    templates = list_templates()
+    session: dict = {}
+    init_circuit_select_from_query(
+        session,
+        templates,
+        {"circuit": "surface_gkp_d5"},
+    )
+    print(f"circuit_select_seed: {session.get('circuit_select')}")
+    assert session["circuit_select"] == "Surface-GKP distance-5"
+    init_circuit_select_from_query(session, templates, {"circuit": "gkp_memory"})
+    assert session["circuit_select"] == "Surface-GKP distance-5"
+
+
+def test_resolve_active_template_uses_builtin_when_qasm_off(capsys):
+    templates = list_templates()
+    by_name = {t.name: t for t in templates}
+    template, err = resolve_active_template(
+        by_name,
+        "Surface-GKP distance-3",
+        use_qasm=False,
+        qasm_text='OPENQASM 2.0;\nqreg q[99];\n',
+    )
+    print(f"builtin_template: {template.id} err={err}")
+    assert err is None
+    assert template.id == "surface_gkp_d3"
+
+
+def test_resolve_active_template_qasm_when_enabled(capsys):
+    templates = list_templates()
+    by_name = {t.name: t for t in templates}
+    template, err = resolve_active_template(
+        by_name,
+        "Surface-GKP distance-3",
+        use_qasm=True,
+        qasm_text='OPENQASM 2.0;\nqreg q[16];\n',
+    )
+    print(f"qasm_template: {template.id} source={template.source}")
+    assert err is None
+    assert template.source == "qasm"
