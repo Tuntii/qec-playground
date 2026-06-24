@@ -72,10 +72,10 @@ def render_sidebar(
         noise_p=noise_p,
         skip_threshold=skip_threshold,
         shots=shots,
-        window_size=template.window_size,
-        surface_distance=template.surface_distance,
+        window_size=int(initial.window_size if initial else template.window_size),
+        surface_distance=int(initial.surface_distance if initial else template.surface_distance),
         seed=int(seed),
-        circuit_id=template.id,
+        circuit_id=str(initial.circuit_id if initial else template.id),
         circuit_name=template.name,
     )
 

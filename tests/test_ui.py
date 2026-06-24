@@ -4,11 +4,13 @@ import pytest
 
 from core.simulator import run_simulation
 from ui.circuit_loader import list_templates, load_template_by_id, parse_qasm
+from ui.bootstrap import circuit_name_from_query, take_query_restore
 from ui.export import (
     build_share_url,
     dataframe_to_csv,
     decode_config_payload,
     encode_config_payload,
+    figure_to_png,
     results_to_dataframe,
 )
 from ui.sliders import SimulationParams, params_from_query
@@ -83,10 +85,56 @@ def test_export_csv_and_share_url(capsys):
 def test_params_from_query_overrides(capsys):
     template = load_template_by_id("gkp_memory")
     params = params_from_query(
-        {"sq": "11.5", "noise": "0.04", "skip": "0.6", "shots": "500", "seed": "99"},
+        {
+            "sq": "11.5",
+            "noise": "0.04",
+            "skip": "0.6",
+            "shots": "500",
+            "seed": "99",
+            "win": "6",
+            "dist": "5",
+            "circuit": "surface_gkp_d5",
+        },
         template,
     )
-    print(f"query_params: sq={params.squeezing_db} shots={params.shots}")
+    print(
+        f"query_params: sq={params.squeezing_db} shots={params.shots} "
+        f"win={params.window_size} dist={params.surface_distance} circuit={params.circuit_id}"
+    )
     assert params.squeezing_db == 11.5
     assert params.shots == 500
     assert params.seed == 99
+    assert params.window_size == 6
+    assert params.surface_distance == 5
+    assert params.circuit_id == "surface_gkp_d5"
+
+
+def test_figure_to_png_exports_bytes(capsys):
+    result = run_simulation(shots=100, seed=5, include_syndromes=True)
+    charts = build_all_charts(result, result["syndromes"])
+    png_error = figure_to_png(charts["error_rate"])
+    png_success = figure_to_png(charts["success_probability"])
+    print(
+        f"png_error_len: {len(png_error)} png_success_len: {len(png_success)} "
+        f"png_error_magic: {png_error[:8]}"
+    )
+    assert len(png_error) > 1000
+    assert len(png_success) > 1000
+    assert png_error[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_circuit_name_from_query(capsys):
+    templates = list_templates()
+    name = circuit_name_from_query(templates, {"circuit": "surface_gkp_d5"})
+    print(f"query_circuit_name: {name}")
+    assert name == "Surface-GKP distance-5"
+
+
+def test_take_query_restore_once(capsys):
+    session: dict = {}
+    q = {"circuit": "gkp_memory", "sq": "10"}
+    first = take_query_restore(session, q)
+    second = take_query_restore(session, q)
+    print(f"query_restore_first: {first is not None} second: {second is None}")
+    assert first == q
+    assert second is None

@@ -145,6 +145,7 @@ def _display_results(result: dict[str, Any], params: Any, *, compare_focus: bool
 def run_streamlit() -> None:
     import streamlit as st
 
+    from ui.bootstrap import circuit_name_from_query, take_query_restore
     from ui.circuit_loader import list_templates, parse_qasm
     from ui.sliders import render_sidebar
 
@@ -156,22 +157,25 @@ def run_streamlit() -> None:
 
     templates = list_templates()
     template_by_name = {t.name: t for t in templates}
-    query = dict(st.query_params)
+    template_names = list(template_by_name.keys())
+    query_restore = take_query_restore(st.session_state, dict(st.query_params))
 
-    default_name = templates[0].name
-    for template in templates:
-        if template.id == query.get("circuit"):
-            default_name = template.name
-            break
+    if "selected_circuit_name" not in st.session_state:
+        st.session_state["selected_circuit_name"] = circuit_name_from_query(
+            templates,
+            dict(st.query_params),
+        )
 
     st.subheader("Circuit")
     col_circuit, col_meta = st.columns([2, 1])
     with col_circuit:
         selected_name = st.selectbox(
             "Built-in GKP-surface template",
-            options=list(template_by_name.keys()),
-            index=list(template_by_name.keys()).index(default_name),
+            options=template_names,
+            index=template_names.index(st.session_state["selected_circuit_name"]),
+            key="circuit_select",
         )
+        st.session_state["selected_circuit_name"] = selected_name
         template = template_by_name[selected_name]
         qasm_text = st.text_area(
             "QASM import (optional)",
@@ -190,7 +194,7 @@ def run_streamlit() -> None:
         st.markdown(f"**Window size:** {template.window_size}")
         st.markdown(f"**Source:** {template.source}")
 
-    params = render_sidebar(template, query=query or None)
+    params = render_sidebar(template, query=query_restore)
 
     btn_run, btn_compare = st.columns(2)
     run_clicked = btn_run.button("Run Simulation", type="primary")
