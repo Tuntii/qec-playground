@@ -1,0 +1,10 @@
+{
+  "id": "surface_gkp_d5",
+  "name": "Surface-GKP distance-5",
+  "description": "Larger surface patch with GKP cat states on data qubits.",
+  "surface_distance": 5,
+  "window_size": 5,
+  "default_squeezing_db": 12.0,
+  "default_noise_p": 0.015,
+  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[25];\ncreg c[25];\n// Distance-5 surface memory\nh q[0];\ncx q[0],q[5];\ncx q[5],q[10];\n"
+}

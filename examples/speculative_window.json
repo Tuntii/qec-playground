@@ -1,0 +1,10 @@
+{
+  "id": "speculative_window",
+  "name": "Speculative window demo",
+  "description": "Tuned for visible skip-threshold effects in decoder comparison.",
+  "surface_distance": 3,
+  "window_size": 4,
+  "default_squeezing_db": 10.0,
+  "default_noise_p": 0.04,
+  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[7];\ncreg c[7];\n// Windowed syndrome extraction\nh q[0];\nmeasure q[0] -> c[0];\n"
+}
