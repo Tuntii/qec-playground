@@ -2,7 +2,7 @@
 
 **Surface-GKP kodlarında "Ne zaman skip etsem?" sorusunun canlı cevabı.**
 
-![QEC-Playground success probability chart](assets/hero.png)
+![QEC-Playground dashboard — sliders, Run Simulation, and charts](assets/hero.png)
 
 > **24 Haziran 2026** arXiv makalesinin (*Surface-GKP + Speculative Window Decoders*) **ilk açık kaynak implementasyonu**. QuTiP ile GKP simülasyonu, speculative window decoder ve naive baseline karşılaştırması — 2 dakikada parametre denemesi.
 
@@ -13,38 +13,39 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Headless CLI (terminal çıktısı):
+Headless CLI (terminal çıktısı, Streamlit import etmez):
 
 ```bash
-python app.py
+python cli.py
 ```
 
 ## Interactive demo
 
-Canlı demo (Hugging Face Spaces — Streamlit SDK):
+**Live demo:** `YOUR_DEMO_URL` *(replace after Hugging Face Spaces or Streamlit Cloud deploy)*
 
-**https://huggingface.co/spaces/tunay/qec-playground**
+Example after deploy:
 
-Deploy sonrası paylaşım linkleri için ortam değişkeni:
+```text
+https://huggingface.co/spaces/YOUR_USERNAME/qec-playground
+```
+
+Share links in the app use `build_share_url(params, base_url=...)` — set the deployed base via env or pass explicitly:
 
 ```bash
-set QEC_DEMO_BASE_URL=https://huggingface.co/spaces/tunay/qec-playground
+set QEC_DEMO_BASE_URL=YOUR_DEMO_URL
 streamlit run app.py
 ```
 
-`QEC_DEMO_BASE_URL` ayarlandığında "Share this config" URL'leri canlı demo tabanını kullanır.
-
 ### Hugging Face Spaces
 
-1. Yeni Space oluştur → SDK: **Streamlit**
-2. Bu repoyu bağla (`app.py` + `requirements.txt` kök dizinde)
-3. Space URL'ini yukarıdaki demo linkine ve `QEC_DEMO_BASE_URL`'e yaz
+1. New Space → SDK: **Streamlit**
+2. Connect this repo (`app.py` + `requirements.txt` at repo root)
+3. Copy the Space URL into `YOUR_DEMO_URL` above and `QEC_DEMO_BASE_URL`
 
 ### Streamlit Community Cloud
 
-1. [share.streamlit.io](https://share.streamlit.io) üzerinden repo'yu seç
-2. Main file: `app.py`
-3. Deploy tamamlanınca çıkan URL'yi `QEC_DEMO_BASE_URL` olarak kullan
+1. [share.streamlit.io](https://share.streamlit.io) → select repo, main file `app.py`
+2. Use the deployed URL as `YOUR_DEMO_URL` / `QEC_DEMO_BASE_URL`
 
 ## Features
 
@@ -60,7 +61,7 @@ app.py              # Streamlit UI + CLI entry
 core/               # QuTiP GKP + decoder simulation
 ui/                 # Sliders, charts, export, circuit loader
 examples/           # 5 JSON circuit templates
-assets/             # README hero image
+assets/             # README hero dashboard screenshot
 tests/              # pytest suite
 ```
 
@@ -70,9 +71,9 @@ tests/              # pytest suite
 python -m pytest tests/ -q
 ```
 
-## Star Cta
+## Star
 
-Star'ını ver ki quantum dünyasında ilk senin tool'un ünlensin — bu makale için hâlâ başka açık implementasyon yok.
+Star'ını ver ki quantum dünyasında ilk senin tool'un ünlensin 🔥
 
 ## License
 

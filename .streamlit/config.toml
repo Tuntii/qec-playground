@@ -1,8 +1,5 @@
-[server]
-headless = true
-port = 8501
-enableCORS = false
-enableXsrfProtection = false
-
 [browser]
 gatherUsageStats = false
+
+# Local `streamlit run app.py` opens the browser by default (headless not forced).
+# Hugging Face Spaces injects its own server settings at runtime.

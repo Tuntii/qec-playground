@@ -1,62 +1,20 @@
-"""QEC-Playground — Streamlit MVP + CLI entry point."""
+"""QEC-Playground — Streamlit UI (use cli.py for headless terminal output)."""
 
 from __future__ import annotations
 
-import json
-import sys
+import os
 from typing import Any
 
 from core.simulator import run_simulation
 
 
-def _is_streamlit_runtime() -> bool:
+def _has_streamlit_context() -> bool:
     try:
         from streamlit.runtime.scriptrunner import get_script_run_ctx
 
         return get_script_run_ctx() is not None
     except Exception:
         return False
-
-
-def run_cli() -> int:
-    """Headless CLI simulation (python app.py)."""
-    result = run_simulation(
-        squeezing_db=10.0,
-        noise_p=0.02,
-        skip_threshold=0.7,
-        shots=1000,
-        window_size=4,
-        seed=42,
-    )
-
-    gkp = result["gkp"]
-    dec = result["decoder"]
-
-    print("QEC-Playground Simulation Results")
-    print("=" * 40)
-    print(f"GKP squeezing:        {gkp['squeezing_db']:.1f} dB")
-    print(f"Noise level:          {gkp['noise_p']:.4f}")
-    print(f"Logical error rate:   {gkp['logical_error_rate']:.4f}")
-    print(f"Physical error rate:  {gkp['physical_error_rate']:.4f}")
-    print(f"Mean fidelity:        {gkp['mean_fidelity']:.4f}")
-    print()
-    print("Speculative Decoder")
-    print(f"  Success probability: {dec['speculative']['success_probability']:.4f}")
-    print(f"  Mean wait cycles:    {dec['speculative']['mean_wait_cycles']:.2f}")
-    print(f"  Speculation rate:    {dec['speculative']['speculation_rate']:.4f}")
-    print()
-    print("Naive Decoder")
-    print(f"  Success probability: {dec['naive']['success_probability']:.4f}")
-    print(f"  Mean wait cycles:    {dec['naive']['mean_wait_cycles']:.2f}")
-    print()
-    print(f"Wait reduction:       {dec['wait_reduction']:.2%}")
-    print(f"Success delta:        {dec['success_delta']:+.4f}")
-
-    if "--json" in sys.argv:
-        print()
-        print(json.dumps(result, indent=2))
-
-    return 0
 
 
 def _execute_simulation(params: Any) -> dict[str, Any]:
@@ -78,6 +36,7 @@ def _display_results(result: dict[str, Any], params: Any, *, compare_focus: bool
     from ui.export import (
         build_share_url,
         dataframe_to_csv,
+        default_share_base_url,
         encode_config_payload,
         figure_to_png,
         results_to_dataframe,
@@ -113,7 +72,7 @@ def _display_results(result: dict[str, Any], params: Any, *, compare_focus: bool
     st.subheader("Export")
     df = results_to_dataframe(result, params)
     csv_bytes = dataframe_to_csv(df)
-    share_url = build_share_url(params)  # honors QEC_DEMO_BASE_URL when set
+    share_url = build_share_url(params, base_url=default_share_base_url())
     share_token = encode_config_payload(params)
 
     st.download_button(
@@ -230,7 +189,5 @@ def run_streamlit() -> None:
         )
 
 
-if _is_streamlit_runtime():
+if os.environ.get("STREAMLIT_SERVER_PORT") or _has_streamlit_context():
     run_streamlit()
-elif __name__ == "__main__":
-    raise SystemExit(run_cli())
