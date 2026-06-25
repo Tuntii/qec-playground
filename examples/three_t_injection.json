@@ -9,5 +9,19 @@
   "default_cycle_time_us": 1.0,
   "default_speculation_accuracy": 0.9,
   "default_decoder_latency_rounds": 2,
-  "default_ordering_strategy": "shallow_first"
+  "default_ordering_strategy": "shallow_first",
+  "default_window_strategy": "parallel",
+  "patches": [
+    {"id": 0, "chain": 0, "label": "T-chain-0"},
+    {"id": 1, "chain": 1, "label": "T-chain-1"},
+    {"id": 2, "chain": 2, "label": "T-chain-2"}
+  ],
+  "ops": [
+    {"type": "t_injection", "round": 0, "patch": 0},
+    {"type": "t_injection", "round": 0, "patch": 1},
+    {"type": "t_injection", "round": 0, "patch": 2},
+    {"type": "conditional_s", "round": 5, "patch": 0, "blocks_until_window_index": 4},
+    {"type": "conditional_s", "round": 5, "patch": 1, "blocks_until_window_index": 4},
+    {"type": "conditional_s", "round": 5, "patch": 2, "blocks_until_window_index": 4}
+  ]
 }
