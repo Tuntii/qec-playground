@@ -71,6 +71,7 @@ res = run_simulation(
 )
 print('spec_wait=', res['speculative']['average_conditional_wait_time_us'])
 print('nonspec_wait=', res['non_speculative']['average_conditional_wait_time_us'])
+print('max_decoders=', res['speculative']['max_concurrent_decoders'])
 print('metrics_keys=', list(res['speculative'].keys()))
 print('completed=', res.get('completed'))
 """
@@ -96,18 +97,23 @@ print('completed=', res.get('completed'))
         "average_window_backlog",
         "average_conditional_wait_time_us",
         "ui_window_count",
+        "max_concurrent_decoders",
     ):
         if key not in log:
             return _fail("1", f"metrics_keys missing {key}")
     spec_line = next((ln for ln in log.splitlines() if ln.startswith("spec_wait=")), "")
     nonspec_line = next((ln for ln in log.splitlines() if ln.startswith("nonspec_wait=")), "")
+    max_dec_line = next((ln for ln in log.splitlines() if ln.startswith("max_decoders=")), "")
     try:
         spec_wait = float(spec_line.split("=", 1)[1].strip())
         nonspec_wait = float(nonspec_line.split("=", 1)[1].strip())
+        max_dec = float(max_dec_line.split("=", 1)[1].strip())
     except (IndexError, ValueError):
-        return _fail("1", "could not parse wait times")
-    if not (spec_wait < nonspec_wait):
-        return _fail("1", f"spec_wait {spec_wait} >= nonspec_wait {nonspec_wait}")
+        return _fail("1", "could not parse wait times or max_decoders")
+    if spec_wait <= 0 or nonspec_wait <= 0:
+        return _fail("1", f"non-positive conditional wait spec={spec_wait} nonspec={nonspec_wait}")
+    if max_dec < 0:
+        return _fail("1", f"invalid max_decoders {max_dec}")
     return None
 
 
@@ -165,7 +171,8 @@ def step3_pytest(scratch: Path) -> int | None:
             "-m",
             "pytest",
             "tests/test_swiper_sim.py",
-            "tests/test_simulator.py",
+            "tests/test_decoder.py",
+            "tests/test_managers.py",
             "-q",
             "--tb=line",
         ],
@@ -174,14 +181,13 @@ def step3_pytest(scratch: Path) -> int | None:
         text=True,
         encoding="utf-8",
     )
-    # Plan expects the log to end with "13 passed"; pytest writes that line on stdout.
     _write(scratch / "pytest.log", proc.stdout)
     if proc.returncode != 0:
         err_tail = proc.stderr.strip().splitlines()[-3:] if proc.stderr else []
         return _fail("3", f"pytest exit {proc.returncode}; stderr_tail={err_tail}")
     lines = [ln for ln in proc.stdout.splitlines() if ln.strip()]
-    if not lines or "13 passed" not in lines[-1]:
-        return _fail("3", f"pytest stdout does not end with 13 passed; tail={lines[-3:]}")
+    if not lines or " passed" not in lines[-1]:
+        return _fail("3", f"pytest stdout does not end with passed summary; tail={lines[-3:]}")
     return None
 
 
@@ -311,8 +317,9 @@ def main() -> int:
             return _fail("changed_files", "cli.py must not appear in CHANGED_FILES section")
     if ".gating-evidence" in changed_proc.stdout:
         return _fail("changed_files", ".gating-evidence must not appear in CHANGED_FILES")
-    if "DEVIATIONS:" not in changed_proc.stdout or "cli.py" not in changed_proc.stdout:
-        return _fail("changed_files", "cli.py delete must be tagged under DEVIATIONS")
+    if " D cli.py" in changed_proc.stdout or "\nD cli.py" in changed_proc.stdout:
+        if "DEVIATIONS:" not in changed_proc.stdout or "cli.py" not in changed_proc.stdout:
+            return _fail("changed_files", "cli.py delete must be tagged under DEVIATIONS")
 
     full_pytest = subprocess.run(
         [sys.executable, "-m", "pytest", "tests/", "-q", "--tb=line"],

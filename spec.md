@@ -1,20 +1,20 @@
 # QEC-Playground — Project Specification
-**Version:** 3.0 (25 June 2026)  
+**Version:** 4.0 (25 June 2026)  
 **Owner:** Tunay  
-**Goal:** First open-source implementation of an interactive lightweight round-stepped playground for the speculative window decoder analysis framework in *An Analysis of Speculative Window Decoders for Quantum Error Correction* (Jocelyn Li and Margaret Martonosi, arXiv:2606.24048).
+**Goal:** First open-source full SWIPER-SIM behavioral model for the speculative window decoder analysis framework in *An Analysis of Speculative Window Decoders for Quantum Error Correction* (Jocelyn Li and Margaret Martonosi, arXiv:2606.24048).
 
 ## 1. Project definition
 **Name:** QEC-Playground  
-**Tagline:** First open-source interactive playground for Li & Martonosi speculative window decoder sensitivity analysis.
+**Tagline:** First open-source interactive full SWIPER-SIM behavioral model for Li & Martonosi speculative window decoder sensitivity analysis.
 
 **Positioning (accurate scope):**
-- **This project:** first open-source tool implementing the Li & Martonosi (arXiv:2606.24048) analysis framework with real syndrome graph construction and matching-decoder speculation confirmation, plus Streamlit/CLI.
-- **Distinct from the full SWIPER-SIM** in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER); Li & Martonosi used a modified SWIPER-SIM internally and do not publish that source.
-- **Model level:** round-stepped scheduling (window states, processor queue, conditional wait) wired to real syndrome graph construction and matching decoder (MWPM on 1D check paths) — not the full SWIPER-SIM port or exact paper figure reproduction.
+- **This project:** first open-source implementation of the Li & Martonosi (arXiv:2606.24048) analysis framework as a **full SWIPER-SIM behavioral model** — DeviceManager, WindowManager, DecoderManager, boundary predictor, matching verification, optimistic restart, blocking Conditional-S delays, and parallel/aligned/sliding window strategies.
+- **Distinct from** the original C++ [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER) in implementation size and exact benchmark numbers; this is a lightweight Python reimplementation of core manager behaviors, not a line-for-line port.
+- **Model level:** round-stepped lattice surgery programs with real syndrome graph construction and matching decoder (MWPM on 1D check paths).
 
 **Why:**  
 - Li & Martonosi paper is fresh (submitted 23 Jun 2026) and releases no code for their modified SWIPER-SIM experiments.  
-- Researchers need an open playground to explore processor count, gate speed, speculation accuracy, and ordering strategies.  
+- Researchers need an open playground to explore processor count, gate speed, speculation accuracy, window strategies, and ordering.  
 - CLI + Streamlit drive the same `run_simulation()` entry point for reproducible metrics.
 
 ## 2. Target users
@@ -24,47 +24,48 @@
 
 ## 3. Features
 
-### MVP (first open-source playground)
-- [x] Lattice surgery schedule loading (JSON templates; default three parallel T-gate injections)
-- [x] Paper parameter sliders/CLI: processors, gate speed (1µs / 2µs), speculation accuracy, decoder latency, ordering strategy
+### Core (full SWIPER-SIM behavioral model)
+- [x] Lattice surgery program loading (patches, ops, blocking; JSON templates)
+- [x] DeviceManager — per-round active patches and syndrome emission
+- [x] WindowManager — parallel, aligned, sliding window strategies
+- [x] DecoderManager — boundary predictor, matching verify, optimistic restart
+- [x] Paper parameter sliders/CLI: processors, gate speed, speculation accuracy, decoder latency, ordering + window strategy
 - [x] Round-stepped speculative window simulator (speculative + non-speculative modes)
-- [x] Plotly charts: total decoding time, window backlog, conditional wait, UI window count
-- [x] `python app.py` CLI with argparse flags matching paper inputs
-- [x] Export: PNG + CSV + shareable config URL
-- [x] MIT LICENSE with academic citation note
+- [x] Metrics: runtime, backlog, conditional wait, UI windows, restarts, max/mean concurrent decoders
+- [x] Plotly charts + `python app.py` CLI + export
 
 ### Core status (25 June 2026)
-- **Core:** `core/schedule.py`, `core/swiper_sim.py`, `core/simulator.py`
-- **UI:** `streamlit run app.py` — schedule picker, paper sliders, Plotly charts, export
-- **CLI:** `python app.py` — headless text report via `ui/sim_params.py`
-- **Legacy:** `core/legacy_gkp.py` — isolated QuTiP GKP module (not primary path)
+- **Managers:** `core/device_manager.py`, `core/window_manager.py`, `core/decoder_manager.py`
+- **Orchestrator:** `core/swiper_sim.py`, `core/simulator.py`
+- **Schedules:** `core/schedule.py`, `examples/` (three_t_injection, merge_split_t)
+- **UI:** `streamlit run app.py`
+- **CLI:** `python app.py`
 
 ### Future
 - Additional benchmark schedules from the paper
-- Program trace / window graph visualization
-- Batch parameter sweeps and CSV export
+- Interactive program trace / window graph visualization
+- Batch parameter sweeps
 
 ## 4. Tech stack
-- **Simulation:** NumPy (round-stepped SWIPER-SIM-style model)
+- **Simulation:** NumPy (round-stepped full SWIPER-SIM behavioral model)
 - **UI:** Streamlit + Plotly
-- **Deploy:** Streamlit Community Cloud / Hugging Face Spaces
+- **Deploy:** Hugging Face Spaces / Streamlit Community Cloud
 - **Setup:** `pip install -r requirements.txt && streamlit run app.py`
 
 ## 5. Folder layout
 ```
 qec-playground/
-├── LICENSE
 ├── app.py
 ├── core/
+│   ├── device_manager.py
+│   ├── window_manager.py
+│   ├── decoder_manager.py
 │   ├── schedule.py
+│   ├── syndrome_graph.py
+│   ├── matching_decoder.py
 │   ├── swiper_sim.py
-│   ├── simulator.py
-│   └── legacy_gkp.py
+│   └── simulator.py
 ├── ui/
-│   ├── sim_params.py
-│   ├── sliders.py
-│   ├── visualizations.py
-│   └── export.py
 ├── examples/
 └── tests/
 ```
@@ -76,9 +77,9 @@ qec-playground/
 | `average_window_backlog` | Mean count of active (non-verified) windows |
 | `average_conditional_wait_time_us` | Mean blocking wait on Conditional-S deps |
 | `ui_window_count` | Speculative decode sessions on unverified deps |
-
-Under default fast-gate parameters (4 processors, 1µs, 90% accuracy, shallow_first), speculative mode must complete and report lower average conditional wait than non-speculative.
+| `max_concurrent_decoders` | Peak classical decoder occupancy |
+| `average_concurrent_decoders` | Mean decoder occupancy per round |
 
 ## 7. References
-- Li & Martonosi, *An Analysis of Speculative Window Decoders for Quantum Error Correction*, arXiv:2606.24048 (QCCC-26 workshop)
+- Li & Martonosi, *An Analysis of Speculative Window Decoders for Quantum Error Correction*, arXiv:2606.24048
 - Viszlai et al., SWIPER (ISCA 2025) — [github.com/jviszlai/swiper](https://github.com/jviszlai/swiper)

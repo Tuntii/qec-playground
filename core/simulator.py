@@ -1,7 +1,7 @@
-"""Primary simulation entry — Li & Martonosi speculative window decoder playground.
+"""Primary simulation entry — full SWIPER-SIM behavioral model (Li & Martonosi).
 
-Public API: run_simulation() drives the round-stepped model in core/swiper_sim.py
-on lattice-surgery schedules. Cite arXiv:2606.24048 when using results.
+Public API: run_simulation() drives Device/Window/Decoder managers in core/swiper_sim.py.
+Cite arXiv:2606.24048 when using results.
 """
 
 from __future__ import annotations
@@ -21,8 +21,10 @@ def run_simulation(
     speculation_accuracy: float = 0.9,
     decoder_latency_rounds: int = 2,
     ordering_strategy: str = "shallow_first",
+    window_strategy: str = "parallel",
     speculative: bool | None = None,
     compare_modes: bool = True,
+    emit_trace: bool = False,
     seed: int = 42,
     # Legacy kwargs ignored (GKP path removed from primary API).
     **_: Any,
@@ -43,8 +45,10 @@ def run_simulation(
         speculation_accuracy=speculation_accuracy,
         decoder_latency_rounds=decoder_latency_rounds,
         ordering_strategy=ordering_strategy,
+        window_strategy=window_strategy,
         speculative=True,
         seed=seed,
+        emit_trace=emit_trace,
     )
 
     if compare_modes:
@@ -64,6 +68,7 @@ def run_simulation(
                 "speculation_accuracy": speculation_accuracy,
                 "decoder_latency_rounds": decoder_latency_rounds,
                 "ordering_strategy": ordering_strategy,
+                "window_strategy": window_strategy,
                 "seed": seed,
             },
         }
@@ -75,8 +80,10 @@ def run_simulation(
         speculation_accuracy=speculation_accuracy,
         decoder_latency_rounds=decoder_latency_rounds,
         ordering_strategy=ordering_strategy,
+        window_strategy=window_strategy,
         speculative=mode_spec,
         seed=seed,
+        emit_trace=emit_trace,
     )
     run = run_swiper_simulation(sched, cfg)
     return {

@@ -56,6 +56,19 @@ def render_sidebar(
         index=_ordering_index(initial or template),
         format_func=lambda x: x[0],
     )[1]
+    default_wstrat = (
+        initial.window_strategy if initial else template.default_window_strategy
+    )
+    window_strategy = st.sidebar.selectbox(
+        "Window strategy",
+        options=[
+            ("Parallel", "parallel"),
+            ("Aligned", "aligned"),
+            ("Sliding", "sliding"),
+        ],
+        index=["parallel", "aligned", "sliding"].index(default_wstrat),
+        format_func=lambda x: x[0],
+    )[1]
     seed = st.sidebar.number_input(
         "Random seed",
         min_value=0,
@@ -69,6 +82,7 @@ def render_sidebar(
         speculation_accuracy=float(speculation_accuracy),
         decoder_latency_rounds=int(decoder_latency_rounds),
         ordering_strategy=str(ordering_strategy),
+        window_strategy=str(window_strategy),
         seed=int(seed),
         schedule_id=template.id,
         schedule_name=template.name,

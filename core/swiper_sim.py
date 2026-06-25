@@ -1,30 +1,21 @@
-"""Round-stepped speculative window decoder model (Li & Martonosi, arXiv:2606.24048).
+"""Full SWIPER-SIM behavioral model — round-level lattice surgery program decoding.
 
-Round-stepped speculative window scheduling with real syndrome-graph matching
-decoder confirmation of speculation (not the full SWIPER-SIM in jviszlai/swiper).
-
-Window generation, pending/ready/decoding/verified states, predecessor speculation
-with misprediction restart, processor-limited dispatch, and conditional-wait
-accounting. Speculation correctness is decided by matching decoder outcomes, not
-predecessor state alone.
+DeviceManager (syndrome rounds), WindowManager (parallel/aligned/sliding strategies),
+DecoderManager (predictor + matching verify + optimistic restart). Cite arXiv:2606.24048.
+Lightweight Python reimplementation of jviszlai/swiper manager behaviors (ISCA 2025).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
 import numpy as np
 
-from core.matching_decoder import verify_window_speculation
+from core.decoder_manager import BoundaryPredictor, DecoderManager
+from core.device_manager import DeviceManager
 from core.schedule import LatticeSurgerySchedule
-
-
-class OrderingStrategy(str, Enum):
-    SHALLOW_FIRST = "shallow_first"
-    DEEP_FIRST = "deep_first"
-    GENERATION_ORDER = "generation_order"
+from core.window_manager import OrderingStrategy, WindowManager, WindowStrategy
 
 
 @dataclass(frozen=True)
@@ -34,85 +25,13 @@ class SwiperConfig:
     speculation_accuracy: float = 0.9
     decoder_latency_rounds: int = 2
     ordering_strategy: str = OrderingStrategy.SHALLOW_FIRST.value
+    window_strategy: str = WindowStrategy.PARALLEL.value
     speculative: bool = True
     seed: int = 42
-
-
-@dataclass
-class _Window:
-    window_id: int
-    chain_id: int
-    gen_round: int
-    index_in_chain: int
-    pred_id: int | None
-    appeared: bool = False
-    state: str = "pending"
-    speculation_depth: int = 0
-    speculated: bool = False
-    speculation_correct: bool | None = None
-    decode_remaining: int = 0
-    verify_remaining: int = 0
-    restarts: int = 0
-    syndrome_measured: np.ndarray | None = None
-    hidden_z: np.ndarray | None = None
-
-
-@dataclass
-class _ChainState:
-    chain_id: int
-    blocked: bool = False
-    block_start: int | None = None
-    cond_wait_rounds: int = 0
-
-
-def _build_windows(schedule: LatticeSurgerySchedule, interval: int) -> list[_Window]:
-    windows: list[_Window] = []
-    for chain in range(schedule.parallelism):
-        prev_id: int | None = None
-        for idx in range(schedule.windows_per_chain):
-            wid = len(windows)
-            windows.append(
-                _Window(
-                    window_id=wid,
-                    chain_id=chain,
-                    gen_round=idx * interval,
-                    index_in_chain=idx,
-                    pred_id=prev_id,
-                )
-            )
-            prev_id = wid
-    return windows
-
-
-def _pred_verified(windows: list[_Window], pred_id: int | None) -> bool:
-    if pred_id is None:
-        return True
-    return windows[pred_id].state == "verified"
-
-
-def _compute_speculation_depth(windows: list[_Window], window: _Window) -> int:
-    if window.pred_id is None:
-        return 0
-    pred = windows[window.pred_id]
-    if pred.state == "verified":
-        return 0
-    return pred.speculation_depth + 1
-
-
-def _sort_ready(ready: list[_Window], strategy: str) -> list[_Window]:
-    if strategy == OrderingStrategy.DEEP_FIRST.value:
-        return sorted(ready, key=lambda w: (-w.speculation_depth, w.gen_round, w.window_id))
-    if strategy == OrderingStrategy.GENERATION_ORDER.value:
-        return sorted(ready, key=lambda w: (w.gen_round, w.window_id))
-    return sorted(ready, key=lambda w: (w.speculation_depth, w.gen_round, w.window_id))
-
-
-def _all_windows_verified(windows: list[_Window]) -> bool:
-    return all(w.appeared and w.state == "verified" for w in windows)
+    emit_trace: bool = False
 
 
 def _safety_round_limit(schedule: LatticeSurgerySchedule, config: SwiperConfig, interval: int) -> int:
-    """Generous cap — completion is detected explicitly; this only guards runaway loops."""
     total = schedule.total_windows()
     restart_budget = max(8, int(4 / max(config.speculation_accuracy, 0.05)))
     per_window = (config.decoder_latency_rounds + 2) * restart_budget
@@ -137,6 +56,8 @@ def _mode_metrics(
     completed: bool,
     windows_verified: int,
     total_windows: int,
+    max_concurrent_decoders: int,
+    average_concurrent_decoders: float,
 ) -> dict[str, float]:
     avg_cond_rounds = chain_cond_wait / max(1, parallelism)
     return {
@@ -149,84 +70,19 @@ def _mode_metrics(
         "speculation_accuracy_rate": (
             speculation_correct_count / speculation_count if speculation_count else 1.0
         ),
+        "max_concurrent_decoders": float(max_concurrent_decoders),
+        "average_concurrent_decoders": average_concurrent_decoders,
         "completed": float(completed),
         "windows_verified": float(windows_verified),
         "total_windows": float(total_windows),
     }
 
 
-def _reset_speculation(window: _Window) -> None:
-    window.speculated = False
-    window.speculation_correct = None
-    window.speculation_depth = 0
-    window.syndrome_measured = None
-    window.hidden_z = None
-
-
-def _handle_mis_speculation(
-    window: _Window,
-    windows: list[_Window],
-    *,
-    restart_count: int,
-    ui_window_count: int,
-) -> tuple[int, int]:
-    """Abort failed speculation; wait for real predecessor before re-decoding."""
-    restart_count += 1
-    ui_window_count += 1
-    window.restarts += 1
-    _reset_speculation(window)
-    if _pred_verified(windows, window.pred_id):
-        window.state = "ready"
-    else:
-        window.state = "pending"
-    return restart_count, ui_window_count
-
-
-def _try_promote_pending(
-    window: _Window,
-    windows: list[_Window],
-    config: SwiperConfig,
-    rng: np.random.Generator,
-    counters: dict[str, int],
-) -> bool:
-    if window.pred_id is None or _pred_verified(windows, window.pred_id):
-        _reset_speculation(window)
-        return True
-    if not config.speculative:
-        return False
-    # After a failed speculation, wait for the real predecessor — do not re-speculate.
-    if window.restarts > 0:
-        return False
-    # Predictor accuracy gates whether we speculate early on an unverified predecessor.
-    if rng.random() >= config.speculation_accuracy:
-        return False
-    from core.syndrome_graph import generate_window_syndrome_with_truth, true_predecessor_logical
-
-    true_left = true_predecessor_logical(
-        pred_id=window.pred_id,
-        pred_verified=False,
-        seed=config.seed,
-    )
-    synd, hidden_z = generate_window_syndrome_with_truth(
-        window_id=window.window_id,
-        pred_id=window.pred_id,
-        seed=config.seed,
-        true_pred_logical=true_left,
-    )
-    window.speculated = True
-    window.speculation_depth = _compute_speculation_depth(windows, window)
-    window.speculation_correct = None
-    window.syndrome_measured = synd
-    window.hidden_z = hidden_z
-    counters["speculation_count"] += 1
-    return True
-
-
 def run_swiper_simulation(
     schedule: LatticeSurgerySchedule,
     config: SwiperConfig,
 ) -> dict[str, Any]:
-    """Round-stepped speculative window decoder with processor queue and ordering."""
+    """Round-stepped SWIPER-SIM with Device/Window/Decoder managers."""
     if config.processor_count < 1:
         raise ValueError("processor_count must be >= 1")
     if not 0.0 <= config.speculation_accuracy <= 1.0:
@@ -234,130 +90,109 @@ def run_swiper_simulation(
 
     rng = np.random.default_rng(config.seed)
     interval = max(1, int(round(config.cycle_time_us)))
-    windows = _build_windows(schedule, interval)
-    chains = [_ChainState(chain_id=c) for c in range(schedule.parallelism)]
+
+    wm = WindowManager(
+        schedule=schedule,
+        strategy=config.window_strategy,
+        interval=interval,
+    )
+    device = DeviceManager(schedule=schedule, seed=config.seed, cycle_time_us=config.cycle_time_us)
+    decoder = DecoderManager(
+        processor_count=config.processor_count,
+        decoder_latency_rounds=config.decoder_latency_rounds,
+        speculative=config.speculative,
+        predictor=BoundaryPredictor(accuracy=config.speculation_accuracy, seed=config.seed),
+    )
 
     backlog_samples: list[int] = []
-    ui_window_count = 0
-    restart_count = 0
-    counters = {"speculation_count": 0, "speculation_correct_count": 0}
-
+    program_trace: list[dict[str, Any]] = []
     safety_limit = _safety_round_limit(schedule, config, interval)
     t = 0
     completed = False
 
     while t < safety_limit:
-        for window in windows:
-            if not window.appeared and t >= window.gen_round:
-                window.appeared = True
+        wm.tick_appearances(t)
+        device.update_blocking(
+            t,
+            window_appeared=wm.appeared_map(),
+            window_verified=wm.verified_map(),
+        )
 
-        for chain in chains:
-            if not chain.blocked:
-                for window in windows:
-                    if (
-                        window.chain_id == chain.chain_id
-                        and window.appeared
-                        and window.index_in_chain == schedule.blocking_window_index
-                    ):
-                        dep_idx = schedule.blocking_window_index - 1
-                        dep_window = next(
-                            w
-                            for w in windows
-                            if w.chain_id == chain.chain_id and w.index_in_chain == dep_idx
-                        )
-                        if dep_window.state != "verified":
-                            chain.blocked = True
-                            chain.block_start = t
-                        break
-            elif chain.block_start is not None:
-                dep_idx = schedule.blocking_window_index - 1
-                dep_window = next(
-                    w
-                    for w in windows
-                    if w.chain_id == chain.chain_id and w.index_in_chain == dep_idx
-                )
-                if dep_window.state == "verified":
-                    chain.cond_wait_rounds += t - chain.block_start
-                    chain.blocked = False
-                    chain.block_start = None
-
-        for window in windows:
+        for window in wm.windows:
             if window.state == "decoding":
                 window.decode_remaining -= 1
                 if window.decode_remaining <= 0:
-                    if window.speculated and config.speculative:
-                        from core.matching_decoder import confirm_speculation_with_matching
+                    decoder.finish_decode(window, wm)
 
-                        pred_ok = False
-                        if window.syndrome_measured is not None and window.hidden_z is not None:
-                            pred_ok = confirm_speculation_with_matching(
-                                window.syndrome_measured,
-                                assumed_pred_logical=0,
-                                hidden_z=window.hidden_z,
-                            )
-                        if pred_ok:
-                            counters["speculation_correct_count"] += 1
-                            window.state = "verified"
-                            _reset_speculation(window)
-                        else:
-                            restart_count, ui_window_count = _handle_mis_speculation(
-                                window,
-                                windows,
-                                restart_count=restart_count,
-                                ui_window_count=ui_window_count,
-                            )
-                    else:
-                        window.state = "verified"
-                        _reset_speculation(window)
-
-        for window in windows:
+        for window in wm.windows:
             if window.appeared and window.state == "pending":
-                if _try_promote_pending(window, windows, config, rng, counters):
+                patch_id = window.patch_id
+                synd_obj = None
+                if config.speculative and window.pred_id is not None and not wm.pred_verified(window.pred_id):
+                    synd_obj = device.emit_syndrome(
+                        window_id=window.window_id,
+                        patch_id=patch_id,
+                        chain_id=window.chain_id,
+                        pred_id=window.pred_id,
+                        pred_verified=False,
+                        round_idx=t,
+                    )
+                promoted = decoder.try_promote_pending(
+                    window,
+                    wm,
+                    rng,
+                    syndrome=synd_obj.syndrome if synd_obj else None,
+                    hidden_z=synd_obj.hidden_z if synd_obj else None,
+                )
+                if promoted:
                     window.state = "ready"
 
-        decoding_now = sum(1 for w in windows if w.state == "decoding")
-        free_slots = max(0, config.processor_count - decoding_now)
-        ready = [w for w in windows if w.appeared and w.state == "ready"]
-        for window in _sort_ready(ready, config.ordering_strategy)[:free_slots]:
-            if window.speculated and config.speculative:
-                ui_window_count += 1
-            window.state = "decoding"
-            window.decode_remaining = config.decoder_latency_rounds
+        decoder.dispatch(wm, config.ordering_strategy, t)
 
-        active = [w for w in windows if w.appeared and w.state != "verified"]
+        active = wm.active_windows()
         backlog_samples.append(len(active))
 
-        if _all_windows_verified(windows):
+        if config.emit_trace:
+            snap = wm.trace_snapshot(t)
+            snap["blocking_pending"] = len(
+                device.blocking_ops_pending_verification(wm.verified_map())
+            )
+            program_trace.append(snap)
+
+        if wm.all_verified():
             completed = True
             break
-        if not active and all(w.appeared for w in windows):
+        if not active and all(w.appeared for w in wm.windows):
             break
         t += 1
 
-    windows_verified = sum(1 for w in windows if w.state == "verified")
-    total_chain_wait = sum(c.cond_wait_rounds for c in chains)
+    decoder.record_concurrency(sum(1 for w in wm.windows if w.state == "decoding"))
+    windows_verified = sum(1 for w in wm.windows if w.state == "verified")
     metrics = _mode_metrics(
         total_time=t,
         backlog_samples=backlog_samples,
-        chain_cond_wait=total_chain_wait,
-        ui_window_count=ui_window_count,
-        restart_count=restart_count,
-        speculation_count=counters["speculation_count"],
-        speculation_correct_count=counters["speculation_correct_count"],
+        chain_cond_wait=device.total_conditional_wait_rounds(),
+        ui_window_count=decoder.ui_window_count,
+        restart_count=decoder.restart_count,
+        speculation_count=decoder.speculation_count,
+        speculation_correct_count=decoder.speculation_correct_count,
         parallelism=schedule.parallelism,
         cycle_time_us=config.cycle_time_us,
         completed=completed,
         windows_verified=windows_verified,
         total_windows=schedule.total_windows(),
+        max_concurrent_decoders=decoder.max_concurrent_decoders,
+        average_concurrent_decoders=decoder.average_concurrent_decoders,
     )
 
-    return {
+    result: dict[str, Any] = {
         "schedule": {
             "id": schedule.id,
             "name": schedule.name,
             "parallelism": schedule.parallelism,
             "windows_per_chain": schedule.windows_per_chain,
             "blocking_window_index": schedule.blocking_window_index,
+            "has_program": schedule.has_program(),
         },
         "config": {
             "processor_count": config.processor_count,
@@ -365,12 +200,17 @@ def run_swiper_simulation(
             "speculation_accuracy": config.speculation_accuracy,
             "decoder_latency_rounds": config.decoder_latency_rounds,
             "ordering_strategy": config.ordering_strategy,
+            "window_strategy": config.window_strategy,
             "speculative": config.speculative,
             "seed": config.seed,
         },
         "metrics": metrics,
         "completed": completed,
     }
+    if config.emit_trace:
+        result["program_trace"] = program_trace
+        result["decoder_trace"] = decoder.trace
+    return result
 
 
 def compare_speculative_modes(
@@ -383,8 +223,10 @@ def compare_speculative_modes(
         speculation_accuracy=base_config.speculation_accuracy,
         decoder_latency_rounds=base_config.decoder_latency_rounds,
         ordering_strategy=base_config.ordering_strategy,
+        window_strategy=base_config.window_strategy,
         speculative=True,
         seed=base_config.seed,
+        emit_trace=base_config.emit_trace,
     )
     nonspec_cfg = SwiperConfig(
         processor_count=base_config.processor_count,
@@ -392,8 +234,10 @@ def compare_speculative_modes(
         speculation_accuracy=base_config.speculation_accuracy,
         decoder_latency_rounds=base_config.decoder_latency_rounds,
         ordering_strategy=base_config.ordering_strategy,
+        window_strategy=base_config.window_strategy,
         speculative=False,
         seed=base_config.seed,
+        emit_trace=base_config.emit_trace,
     )
     speculative = run_swiper_simulation(schedule, spec_cfg)
     non_speculative = run_swiper_simulation(schedule, nonspec_cfg)

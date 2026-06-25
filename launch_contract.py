@@ -20,8 +20,8 @@ PAPER_AUTHORS = "Jocelyn Li and Margaret Martonosi"
 PAPER_ARXIV = "arXiv:2606.24048"
 SWIPER_REPO_MARKER = "github.com/jviszlai/swiper"
 FIRST_OSS_MARKER = "first open-source"
-LIGHTWEIGHT_MARKER = "lightweight"
-SWIPER_SCOPE_MARKER = "not the full"
+FULL_SWIPER_MARKER = "full SWIPER-SIM"
+BEHAVIORAL_MODEL_MARKER = "behavioral model"
 CLI_CMD = "python app.py"
 HERO_MARKDOWN_REF = "assets/hero.png"
 LICENSE_MARKDOWN_REF = "LICENSE"
@@ -30,16 +30,21 @@ CLI_REQUIRED_MARKERS = (
     "QEC-Playground Simulation Results",
     "Conditional wait reduction",
     "Total decoding time",
+    "Max concurrent decoders",
+    "Completed",
 )
 
 OVERCLAIM_MARKERS = (
-    "full SWIPER-SIM implementation",
-    "official SWIPER-SIM",
+    "official SWIPER-SIM release",
     "exact reproduction of the paper",
+    "line-for-line port",
 )
 
 UI_SOURCE_PATHS = (ROOT / "app.py",) + tuple(sorted((ROOT / "ui").glob("*.py")))
 CORE_SOURCE_PATHS = (
+    ROOT / "core" / "device_manager.py",
+    ROOT / "core" / "window_manager.py",
+    ROOT / "core" / "decoder_manager.py",
     ROOT / "core" / "syndrome_graph.py",
     ROOT / "core" / "matching_decoder.py",
     ROOT / "core" / "swiper_sim.py",
@@ -50,14 +55,12 @@ CORE_SOURCE_PATHS = (
 )
 SYNDROME_GRAPH_MARKER = "syndrome graph"
 MATCHING_DECODER_MARKER = "matching decoder"
-NOT_PAPER_FIGURE_MARKER = "not an exact copy"
+MANAGER_MARKER = "DeviceManager"
 TEST_SOURCE_PATHS = tuple(sorted((ROOT / "tests").glob("test_*.py")))
 SOURCE_SCAN_PATHS = UI_SOURCE_PATHS + CORE_SOURCE_PATHS + TEST_SOURCE_PATHS
 
 SWIPER_SIM_SCOPING = (
-    "style",
-    "not the full",
-    "distinct from",
+    "behavioral",
     "lightweight",
     "li & martonosi",
     "round-stepped",
@@ -65,6 +68,11 @@ SWIPER_SIM_SCOPING = (
     "isca 2025",
     "paper metrics",
     "jviszlai",
+    "managers",
+    "devicemanager",
+    "reimplementation",
+    "strategies",
+    "manager modules",
 )
 
 
@@ -100,7 +108,9 @@ def check_source_claims() -> dict[str, bool]:
         "app_has_paper_title": PAPER_TITLE in app_text,
         "app_has_paper_authors": PAPER_AUTHORS in app_text,
         "app_has_paper_arxiv": PAPER_ARXIV in app_text,
-        "app_has_scope_qualifier": "not the full" in app_text.lower(),
+        "app_has_full_swiper_scope": FULL_SWIPER_MARKER.lower() in app_text.lower()
+        or BEHAVIORAL_MODEL_MARKER in app_text.lower(),
+        "managers_present": MANAGER_MARKER in (ROOT / "core" / "device_manager.py").read_text(encoding="utf-8"),
     }
 
 
@@ -110,7 +120,8 @@ def check_license() -> dict[str, bool]:
         "license_exists": LICENSE_PATH.exists(),
         "mit_license": "MIT License" in text,
         "paper_citation": PAPER_ARXIV in text,
-        "swiper_scope_note": "not the full SWIPER-SIM" in text.lower() or "lightweight" in text.lower(),
+        "swiper_scope_note": FULL_SWIPER_MARKER.lower() in text.lower()
+        or BEHAVIORAL_MODEL_MARKER in text.lower(),
     }
 
 
@@ -118,11 +129,12 @@ def check_positioning(text: str) -> dict[str, bool]:
     lower = text.lower()
     return {
         "first_open_source": FIRST_OSS_MARKER in lower,
-        "lightweight_scoped": LIGHTWEIGHT_MARKER in lower,
+        "full_swiper_implementation": FULL_SWIPER_MARKER.lower() in lower
+        or "full swiper-sim behavioral" in lower,
         "swiper_repo_linked": SWIPER_REPO_MARKER in text,
-        "swiper_scope_distinct": SWIPER_SCOPE_MARKER in lower or "distinct from" in lower,
-        "no_overclaim_full_swiper": "full swiper-sim implementation" not in lower,
-        "no_overclaim_official": "official swiper-sim" not in lower,
+        "behavioral_model_scoped": BEHAVIORAL_MODEL_MARKER in lower or "managers" in lower,
+        "no_overclaim_official": "official swiper-sim release" not in lower,
+        "no_overclaim_exact_paper": "exact reproduction of the paper" not in lower,
     }
 
 
@@ -140,8 +152,7 @@ def check_readme(text: str) -> dict[str, bool]:
         "license_linked": LICENSE_MARKDOWN_REF in text,
         "syndrome_graph_described": SYNDROME_GRAPH_MARKER in text.lower(),
         "matching_decoder_described": MATCHING_DECODER_MARKER in text.lower(),
-        "not_paper_figure_copy": NOT_PAPER_FIGURE_MARKER in text.lower()
-        or "exact replication of paper figures" in text.lower(),
+        "managers_described": "devicemanager" in text.lower() or "device manager" in text.lower(),
     }
     checks.update(check_positioning(text))
     return checks
@@ -254,5 +265,7 @@ def check_cli_output(text: str) -> dict[str, bool]:
         "header": CLI_REQUIRED_MARKERS[0] in text,
         "conditional_wait_reduction": CLI_REQUIRED_MARKERS[1] in text,
         "total_decoding_time": CLI_REQUIRED_MARKERS[2] in text,
+        "max_concurrent_decoders": CLI_REQUIRED_MARKERS[3] in text,
+        "completed_status": CLI_REQUIRED_MARKERS[4] in text,
         "has_numeric_values": any(ch.isdigit() for ch in text),
     }

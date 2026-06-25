@@ -29,5 +29,5 @@ If you use this software in academic work, please cite:
   arXiv:2606.24048, 2026.
 
 The underlying speculative window decoding algorithm builds on SWIPER (ISCA 2025).
-This repository is a lightweight round-stepped analysis playground for the
-Li & Martonosi paper and is not the full SWIPER-SIM release.
+This repository implements a full SWIPER-SIM behavioral model for the
+Li & Martonosi paper as a lightweight Python reimplementation (not the original C++ release).

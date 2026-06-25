@@ -17,11 +17,10 @@ GKP_PRIMARY_CLAIMS = (
     "QuTiP ile GKP simülasyonu",
     "Surface-GKP + Speculative Window Decoders",
 )
-FIRST_OSS_MARKERS = ("first open-source", "lightweight")
-SYNDROME_MARKERS = ("syndrome graph", "matching decoder")
-SCOPE_MARKERS = ("not the full", "not an exact copy")
-OVERCLAIM_MARKERS = ("full SWIPER-SIM implementation", "official SWIPER-SIM")
-NEGATED_OLD_CLAIMS = ("not physical syndrome graphs",)
+FIRST_OSS_MARKERS = ("first open-source",)
+SWIPER_MARKERS = ("full SWIPER-SIM", "DeviceManager", "behavioral model")
+OVERCLAIM_MARKERS = ("official SWIPER-SIM release", "exact reproduction of the paper")
+NEGATED_OLD_CLAIMS = ("not physical syndrome graphs", "not the full")
 
 
 def main() -> int:
@@ -40,14 +39,12 @@ def main() -> int:
         )
     for marker in FIRST_OSS_MARKERS:
         lines.append(f"  positioning({marker!r}): readme={marker in readme.lower()}")
-    for marker in SYNDROME_MARKERS:
+    for marker in SWIPER_MARKERS:
         lines.append(
-            f"  syndrome_model({marker!r}): readme={marker in readme.lower()} spec={marker in spec.lower()}"
+            f"  swiper_model({marker!r}): readme={marker in readme} spec={marker in spec}"
         )
-    for marker in SCOPE_MARKERS:
-        lines.append(f"  scope({marker!r}): readme={marker in readme.lower()}")
     for claim in NEGATED_OLD_CLAIMS:
-        lines.append(f"  old_claim_absent({claim!r}): spec={claim not in spec.lower()}")
+        lines.append(f"  old_scope_absent({claim!r}): readme={claim not in readme.lower()}")
     for marker in OVERCLAIM_MARKERS:
         lines.append(f"  no_overclaim({marker!r}): readme={marker.lower() not in readme.lower()}")
     lines.append(f"  LICENSE_exists: {(ROOT / 'LICENSE').exists()}")

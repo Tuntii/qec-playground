@@ -9,6 +9,7 @@ from typing import Any
 from ui.schedule_loader import ScheduleTemplate, load_template_by_id
 
 ORDERING_CHOICES = ("shallow_first", "deep_first", "generation_order")
+WINDOW_STRATEGY_CHOICES = ("parallel", "aligned", "sliding")
 DEFAULT_SCHEDULE_ID = "three_t_injection"
 
 
@@ -19,6 +20,7 @@ class SimulationParams:
     speculation_accuracy: float
     decoder_latency_rounds: int
     ordering_strategy: str
+    window_strategy: str
     seed: int
     schedule_id: str
     schedule_name: str
@@ -33,6 +35,7 @@ def default_cli_params() -> SimulationParams:
         speculation_accuracy=template.default_speculation_accuracy,
         decoder_latency_rounds=template.default_decoder_latency_rounds,
         ordering_strategy=template.default_ordering_strategy,
+        window_strategy=template.default_window_strategy,
         seed=42,
         schedule_id=template.id,
         schedule_name=template.name,
@@ -46,6 +49,7 @@ def params_from_query(query: dict[str, Any], template: ScheduleTemplate) -> Simu
         speculation_accuracy=float(query.get("specacc", template.default_speculation_accuracy)),
         decoder_latency_rounds=int(query.get("latency", template.default_decoder_latency_rounds)),
         ordering_strategy=str(query.get("order", template.default_ordering_strategy)),
+        window_strategy=str(query.get("wstrategy", template.default_window_strategy)),
         seed=int(query.get("seed", 42)),
         schedule_id=str(query.get("schedule", template.id)),
         schedule_name=template.name,
@@ -60,6 +64,7 @@ def to_run_kwargs(params: SimulationParams) -> dict[str, Any]:
         "speculation_accuracy": params.speculation_accuracy,
         "decoder_latency_rounds": params.decoder_latency_rounds,
         "ordering_strategy": params.ordering_strategy,
+        "window_strategy": params.window_strategy,
         "seed": params.seed,
         "compare_modes": True,
     }
@@ -106,6 +111,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
         help="Processor queue ordering strategy (default: %(default)s)",
     )
     parser.add_argument(
+        "--window-strategy",
+        choices=WINDOW_STRATEGY_CHOICES,
+        default=defaults.window_strategy,
+        help="Window assembly strategy: parallel, aligned, or sliding (default: %(default)s)",
+    )
+    parser.add_argument(
         "--schedule",
         dest="schedule_id",
         default=defaults.schedule_id,
@@ -135,6 +146,7 @@ def parse_cli_argv(argv: list[str]) -> tuple[SimulationParams, bool]:
         speculation_accuracy=float(args.speculation_accuracy),
         decoder_latency_rounds=int(args.decoder_latency_rounds),
         ordering_strategy=str(args.ordering),
+        window_strategy=str(args.window_strategy),
         seed=int(args.seed),
         schedule_id=template.id,
         schedule_name=template.name,

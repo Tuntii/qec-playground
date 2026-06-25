@@ -14,7 +14,7 @@ SCRATCH = Path(
     if len(sys.argv) > 1
     else __import__("os").environ.get(
         "QEC_GATING_SCRATCH",
-        r"C:\Users\tunay\AppData\Local\Temp\grok-goal-69281e383295\implementer",
+        r"C:\Users\tunay\AppData\Local\Temp\grok-goal-4bde6fc98aa8\implementer",
     )
 )
 SCRATCH.mkdir(parents=True, exist_ok=True)
@@ -44,6 +44,7 @@ print('time=', s.get('total_decoding_time_us'))
 print('backlog=', s.get('average_window_backlog'))
 print('wait=', s.get('average_conditional_wait_time_us'))
 print('ui=', s.get('ui_window_count'))
+print('max_decoders=', s.get('max_concurrent_decoders'))
 print('completed=', res.get('completed'))
 """,
         ],
@@ -108,16 +109,19 @@ print('completed=', res.get('completed'))
     pdocs = subprocess.run([sys.executable, "scripts/docs_verify.py"], cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
     write("docs_verify.log", pdocs.stdout)
 
-    # Step 5
-    prate = subprocess.run(
+    # Step 5 — strategy compare + blocking schedule
+    strat = subprocess.run(
         [
             sys.executable,
             "-c",
             """
 from core.simulator import run_simulation
-for acc in [0.9, 0.7, 0.5]:
-  r = run_simulation(speculation_accuracy=acc, seed=42)['speculative']
-  print(acc, '-> rate=', r.get('speculation_accuracy_rate'), 'restarts=', r.get('restart_count'), 'specs=', r.get('speculation_count'))
+par = run_simulation(window_strategy='parallel', seed=42)['speculative']
+ali = run_simulation(window_strategy='aligned', seed=42)['speculative']
+blk = run_simulation(schedule_id='merge_split_t', seed=42)['speculative']
+print('parallel_time=', par['total_decoding_time_us'], 'aligned_time=', ali['total_decoding_time_us'])
+print('parallel_wait=', par['average_conditional_wait_time_us'], 'aligned_wait=', ali['average_conditional_wait_time_us'])
+print('merge_split_time=', blk['total_decoding_time_us'], 'max_dec=', blk['max_concurrent_decoders'])
 """,
         ],
         cwd=ROOT,
@@ -125,7 +129,7 @@ for acc in [0.9, 0.7, 0.5]:
         text=True,
         encoding="utf-8",
     )
-    write("rate_context.log", prate.stdout)
+    write("strategy_compare.log", strat.stdout)
 
     print(f"GOAL_VERIFY_OK scratch={SCRATCH}")
     return 0

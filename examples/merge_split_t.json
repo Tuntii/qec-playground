@@ -1,0 +1,27 @@
+{
+  "id": "merge_split_t",
+  "name": "Merge / split T injection",
+  "description": "Two T injections merge mid-program; blocking Conditional-S on merged patch; then split.",
+  "parallelism": 2,
+  "windows_per_chain": 12,
+  "blocking_window_index": 7,
+  "slide_stride_rounds": 2,
+  "default_processor_count": 4,
+  "default_cycle_time_us": 1.0,
+  "default_speculation_accuracy": 0.9,
+  "default_decoder_latency_rounds": 2,
+  "default_ordering_strategy": "shallow_first",
+  "default_window_strategy": "parallel",
+  "patches": [
+    {"id": 0, "chain": 0, "label": "left"},
+    {"id": 1, "chain": 1, "label": "right"},
+    {"id": 2, "chain": 0, "label": "merged"}
+  ],
+  "ops": [
+    {"type": "t_injection", "round": 0, "patch": 0},
+    {"type": "t_injection", "round": 0, "patch": 1},
+    {"type": "merge", "round": 12, "patches": [0, 1], "into": 2},
+    {"type": "conditional_s", "round": 18, "patch": 2, "blocks_until_window_index": 6},
+    {"type": "split", "round": 28, "patches": [2], "into": 0}
+  ]
+}

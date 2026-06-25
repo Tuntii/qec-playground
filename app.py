@@ -114,10 +114,11 @@ def run_streamlit() -> None:
     st.set_page_config(page_title="QEC-Playground", page_icon="⚛️", layout="wide")
     st.title("QEC-Playground")
     st.caption(
-        "First open-source lightweight playground — Jocelyn Li and Margaret Martonosi, "
+        "First open-source full SWIPER-SIM behavioral model — Jocelyn Li and Margaret Martonosi, "
         "An Analysis of Speculative Window Decoders for Quantum Error Correction "
-        "(arXiv:2606.24048). Syndrome graph + matching decoder confirmation; "
-        "round-stepped scheduling — not the full ISCA 2025 SWIPER-SIM or paper figure copy."
+        "(arXiv:2606.24048). DeviceManager + WindowManager + DecoderManager; "
+        "syndrome graph + matching decoder — lightweight Python reimplementation of "
+        "ISCA 2025 SWIPER manager behaviors."
     )
 
     templates = list_templates()

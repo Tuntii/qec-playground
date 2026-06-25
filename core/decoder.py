@@ -1,6 +1,6 @@
-"""Backward-compatible decoder API with syndrome-graph matching (Li & Martonosi).
+"""Backward-compatible decoder API — full SWIPER-SIM behavioral model (Li & Martonosi).
 
-Not the full SWIPER-SIM in jviszlai/swiper (ISCA 2025 SWIPER).
+Lightweight Python reimplementation of jviszlai/swiper manager behaviors (ISCA 2025).
 """
 
 from __future__ import annotations

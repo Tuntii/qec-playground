@@ -20,6 +20,7 @@ class ScheduleTemplate:
     default_speculation_accuracy: float = 0.9
     default_decoder_latency_rounds: int = 2
     default_ordering_strategy: str = "shallow_first"
+    default_window_strategy: str = "parallel"
 
     @property
     def id(self) -> str:
@@ -51,6 +52,7 @@ def load_template_file(path: Path) -> ScheduleTemplate:
         default_speculation_accuracy=float(data.get("default_speculation_accuracy", 0.9)),
         default_decoder_latency_rounds=int(data.get("default_decoder_latency_rounds", 2)),
         default_ordering_strategy=str(data.get("default_ordering_strategy", "shallow_first")),
+        default_window_strategy=str(data.get("default_window_strategy", "parallel")),
     )
 
 

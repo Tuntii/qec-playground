@@ -1,18 +1,18 @@
 # QEC-Playground
 
-**First open-source implementation** of an interactive lightweight round-stepped playground for the speculative window decoder analysis framework in *An Analysis of Speculative Window Decoders for Quantum Error Correction* — Jocelyn Li and Margaret Martonosi ([arXiv:2606.24048](https://arxiv.org/abs/2606.24048)).
+**First open-source full SWIPER-SIM behavioral model** for the speculative window decoder analysis framework in *An Analysis of Speculative Window Decoders for Quantum Error Correction* — Jocelyn Li and Margaret Martonosi ([arXiv:2606.24048](https://arxiv.org/abs/2606.24048)).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-69%20passed-brightgreen.svg)](#tests)
 
 ![QEC-Playground dashboard — sliders, Run Simulation, and charts](assets/hero.png)
 
-> **Scope:** Round-stepped speculative window scheduling with **real syndrome graph construction** and a **matching decoder** (MWPM on 1D check paths) to confirm or reject speculation. **Not the full** SWIPER-SIM in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER) — not an exact copy of Li & Martonosi paper figures or numeric results.
+> **Scope:** Full SWIPER-SIM behavioral model — **DeviceManager**, **WindowManager**, **DecoderManager**, boundary predictor, matching verification, optimistic restart, blocking Conditional-S delays, and **parallel / aligned / sliding** window strategies. Lightweight Python reimplementation of [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025) manager behaviors — not a line-for-line C++ port or exact paper figure reproduction.
 
-**What you get:** compare speculative vs non-speculative parallel window decoding on representative schedules (e.g. three parallel T-gate injections with blocking Conditional-S instructions). The **speculation accuracy slider** gates attempt probability; the **realized speculation rate** comes from matching outcomes and can differ. Tune processors, gate speed (1µs / 2µs), decoder latency, and ordering — see decoding time, backlog, conditional wait, UI windows, and restart stats.
+**What you get:** compare speculative vs non-speculative parallel window decoding on lattice surgery programs (three parallel T-gate injections, merge/split workloads). **Syndrome graph** construction and **matching decoder** (MWPM) confirm or reject speculation. The **speculation accuracy slider** gates attempt probability; the **realized speculation rate** comes from matching outcomes. Tune processors, gate speed (1µs / 2µs), decoder latency, ordering, and window strategy — see runtime, backlog, conditional wait, max concurrent decoders, UI windows, and restart stats.
 
-**What this is not:** a full SWIPER-SIM reproduction, large-scale surface-code compilation, or exact replication of paper figures/tables.
+**What this is not:** the original C++ SWIPER-SIM release, large-scale surface-code compilation, or exact replication of paper figures/tables.
 
 ## Quick start
 
@@ -60,10 +60,11 @@ python scripts/deploy_hf_space.py
 
 ## Features
 
-- **First open-source** interactive playground for Li & Martonosi (arXiv:2606.24048) speculative window decoder sensitivity analysis
-- Lattice surgery schedule templates (three parallel T-injection default + stress workloads)
-- Paper parameters: decoder processors, gate speed (1µs / 2µs), speculation accuracy, decoder latency, ordering strategy
-- Speculative vs non-speculative comparison (Plotly): total decoding time, window backlog, conditional wait, UI windows
+- **First open-source** full SWIPER-SIM behavioral model for Li & Martonosi (arXiv:2606.24048)
+- DeviceManager / WindowManager / DecoderManager round-stepped simulation
+- Lattice surgery programs: patches, merge/split, blocking Conditional-S (`three_t_injection`, `merge_split_t`)
+- Paper parameters: processors, gate speed, speculation accuracy, decoder latency, ordering + window strategy
+- Speculative vs non-speculative comparison: runtime, backlog, conditional wait, max/mean decoders, UI windows
 - Export: CSV, PNG charts, shareable config URL / token
 
 ## Citations
@@ -85,11 +86,14 @@ python scripts/deploy_hf_space.py
 
 ```
 app.py              # Streamlit UI and `python app.py` CLI
-core/               # Syndrome graph + matching decoder + round-stepped scheduler
+core/               # Full SWIPER-SIM behavioral model
+  device_manager.py # Per-round patches + syndromes + blocking
+  window_manager.py # Parallel/aligned/sliding windows
+  decoder_manager.py # Predictor + verify + optimistic restart
   syndrome_graph.py # Defect syndromes per decode round
   matching_decoder.py # MWPM confirmation of speculation
-  schedule.py       # Lattice-surgery schedule templates
-  swiper_sim.py     # Window state machine + metrics
+  schedule.py       # Lattice surgery programs
+  swiper_sim.py     # Manager orchestrator + metrics
   simulator.py      # run_simulation() entry point
 ui/                 # Sliders, charts, export, schedule loader
 examples/           # JSON lattice-surgery schedule templates

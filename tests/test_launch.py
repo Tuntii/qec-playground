@@ -83,6 +83,7 @@ def test_build_share_url_custom_base(capsys):
         speculation_accuracy=0.9,
         decoder_latency_rounds=2,
         ordering_strategy="shallow_first",
+        window_strategy="parallel",
         seed=1,
         schedule_id="three_t_injection",
         schedule_name="Three parallel T-gate injections",
