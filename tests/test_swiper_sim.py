@@ -175,17 +175,28 @@ def test_cond_wait_is_duration_not_blocked_count(capsys):
 
 def test_realized_speculation_rate_from_matching(capsys):
     """Matching-derived rate can differ from predictor slider input."""
-    result = run_simulation(speculation_accuracy=0.9, seed=42)
+    result = run_simulation(speculation_accuracy=0.7, seed=42)
     spec = result["speculative"]
     print(
-        f"input=0.9 rate={spec['speculation_accuracy_rate']:.3f} "
+        f"input=0.7 rate={spec['speculation_accuracy_rate']:.3f} "
         f"specs={spec['speculation_count']} restarts={spec['restart_count']}"
     )
     assert 0.0 <= spec["speculation_accuracy_rate"] <= 1.0
-    assert spec["speculation_count"] >= 0.0
-    assert spec["speculation_accuracy_rate"] <= 1.0
-    if spec["speculation_count"] > 0 and spec["restart_count"] > 0:
-        assert spec["speculation_accuracy_rate"] < 1.0
+    assert spec["speculation_count"] > 0.0
+    assert spec["restart_count"] > 0.0
+    assert spec["speculation_accuracy_rate"] < 1.0
+
+
+def test_matching_drives_restart_on_latent_pred(capsys):
+    from core.matching_decoder import confirm_speculation_with_matching
+    from core.syndrome_graph import generate_window_syndrome, true_predecessor_logical
+
+    synd = generate_window_syndrome(window_id=5, pred_id=3, seed=42)
+    true_left = true_predecessor_logical(pred_id=3, pred_verified=False, seed=42)
+    ok = confirm_speculation_with_matching(synd, assumed_pred_logical=0, true_pred_logical=true_left)
+    print(f"synd_sum={synd.sum()} true_left={true_left} ok={ok}")
+    if true_left == 1 and synd.sum() > 0:
+        assert ok is False
 
 
 def test_identical_runs_match_with_matching(capsys):

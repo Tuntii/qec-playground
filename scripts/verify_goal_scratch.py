@@ -77,7 +77,16 @@ print('completed=', res.get('completed'))
 
     # Step 3
     ptest = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/test_swiper_sim.py", "tests/test_decoder.py", "-q", "--tb=line"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/test_swiper_sim.py",
+            "tests/test_decoder.py",
+            "tests/test_matching_decoder.py",
+            "-q",
+            "--tb=line",
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,

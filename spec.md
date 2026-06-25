@@ -10,7 +10,7 @@
 **Positioning (accurate scope):**
 - **This project:** first open-source tool implementing the Li & Martonosi (arXiv:2606.24048) analysis framework with real syndrome graph construction and matching-decoder speculation confirmation, plus Streamlit/CLI.
 - **Distinct from the full SWIPER-SIM** in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER); Li & Martonosi used a modified SWIPER-SIM internally and do not publish that source.
-- **Model level:** round-stepped scheduling (window states, processor queue, conditional wait) wired to MWPM on 1D syndrome graphs — not a full SWIPER-SIM port or exact paper figure reproduction.
+- **Model level:** round-stepped scheduling (window states, processor queue, conditional wait) wired to real syndrome graph construction and matching decoder (MWPM on 1D check paths) — not the full SWIPER-SIM port or exact paper figure reproduction.
 
 **Why:**  
 - Li & Martonosi paper is fresh (submitted 23 Jun 2026) and releases no code for their modified SWIPER-SIM experiments.  

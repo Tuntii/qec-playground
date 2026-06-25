@@ -8,7 +8,7 @@
 
 ![QEC-Playground dashboard — sliders, Run Simulation, and charts](assets/hero.png)
 
-> **Scope:** Round-stepped speculative window scheduling with **real syndrome graph construction** and a **matching decoder** (MWPM on 1D check paths) to confirm or reject speculation. Distinct from the full SWIPER-SIM in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER) — not an exact copy of Li & Martonosi paper figures or numeric results.
+> **Scope:** Round-stepped speculative window scheduling with **real syndrome graph construction** and a **matching decoder** (MWPM on 1D check paths) to confirm or reject speculation. **Not the full** SWIPER-SIM in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER) — not an exact copy of Li & Martonosi paper figures or numeric results.
 
 **What you get:** compare speculative vs non-speculative parallel window decoding on representative schedules (e.g. three parallel T-gate injections with blocking Conditional-S instructions). The **speculation accuracy slider** gates attempt probability; the **realized speculation rate** comes from matching outcomes and can differ. Tune processors, gate speed (1µs / 2µs), decoder latency, and ordering — see decoding time, backlog, conditional wait, UI windows, and restart stats.
 
