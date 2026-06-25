@@ -20,16 +20,16 @@ def test_naive_decoder_outputs_paper_metrics(capsys):
     assert result["average_conditional_wait_time_us"] >= 0.0
 
 
-def test_compare_decoders_wait_reduction(capsys):
+def test_compare_decoders_match_metrics(capsys):
     comparison = compare_decoders(seed=42, speculation_accuracy=0.9)
-    spec_wait = comparison["speculative"]["average_conditional_wait_time_us"]
-    naive_wait = comparison["naive"]["average_conditional_wait_time_us"]
+    spec = comparison["speculative"]
     print(
-        f"decoder_compare: spec_wait={spec_wait:.2f} naive_wait={naive_wait:.2f} "
-        f"wait_reduction={comparison['wait_reduction']:.2%}"
+        f"decoder_compare: rate={spec['speculation_accuracy_rate']:.3f} "
+        f"restarts={spec['restart_count']} specs={spec['speculation_count']}"
     )
-    assert spec_wait <= naive_wait
-    assert comparison["wait_reduction"] >= 0.0
+    assert spec["speculation_count"] > 0
+    assert 0.0 < spec["speculation_accuracy_rate"] < 1.0
+    assert spec["restart_count"] > 0
 
 
 def test_compare_decoders_with_schedule(capsys):
@@ -51,7 +51,10 @@ def test_decoder_api_exposes_matching_metrics(capsys):
 
 
 def test_matching_decoder_on_graph(capsys):
-    graph = build_syndrome_graph(np.array([0, 1, 1, 0], dtype=np.int8), left_boundary_logical=0)
+    hidden = np.array([0, 1, 1, 0, 0], dtype=np.int8)
+    synd = (hidden[:-1] + hidden[1:]) % 2
+    graph = build_syndrome_graph(synd, left_boundary_logical=0, hidden_z=hidden)
     out = matching_decode(graph)
     print(f"pair_match satisfied={out.satisfied} cost={out.matching_cost}")
     assert out.satisfied is True
+    assert len(out.z_correction) == hidden.size

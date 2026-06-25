@@ -41,9 +41,8 @@ def main() -> int:
     for marker in FIRST_OSS_MARKERS:
         lines.append(f"  positioning({marker!r}): readme={marker in readme.lower()}")
     for marker in SYNDROME_MARKERS:
-        spec_hit = marker in spec.lower() or marker.replace(" ", "-") in spec.lower()
         lines.append(
-            f"  syndrome_model({marker!r}): readme={marker in readme.lower()} spec={spec_hit}"
+            f"  syndrome_model({marker!r}): readme={marker in readme.lower()} spec={marker in spec.lower()}"
         )
     for marker in SCOPE_MARKERS:
         lines.append(f"  scope({marker!r}): readme={marker in readme.lower()}")

@@ -7,7 +7,12 @@ from functools import lru_cache
 
 import numpy as np
 
-from core.syndrome_graph import SyndromeGraph, true_predecessor_logical
+from core.syndrome_graph import (
+    SyndromeGraph,
+    generate_window_syndrome_with_truth,
+    stabilizer_syndrome,
+    true_predecessor_logical,
+)
 
 
 @dataclass(frozen=True)
@@ -15,10 +20,11 @@ class MatchingOutcome:
     satisfied: bool
     logical_correction: int
     matching_cost: int
+    z_correction: tuple[int, ...]
 
 
 def _path_z_chain(syndrome: np.ndarray, left_boundary: int) -> np.ndarray:
-    """Unique minimum-weight Z string for a 1D path code with boundary z[0]."""
+    """Minimum-weight Z correction assuming boundary z[0] (path code MWPM)."""
     z = np.zeros(syndrome.size + 1, dtype=np.int8)
     z[0] = int(left_boundary) % 2
     for i, bit in enumerate(syndrome):
@@ -27,7 +33,7 @@ def _path_z_chain(syndrome: np.ndarray, left_boundary: int) -> np.ndarray:
 
 
 def _mwpm_cost_on_defects(defects: tuple[int, ...], n_checks: int) -> int:
-    """MWPM cost pairing defect check nodes on a line (exact DP)."""
+    """MWPM pairing cost on defect check nodes (exact DP)."""
     if not defects:
         return 0
     d = len(defects)
@@ -60,21 +66,26 @@ def _mwpm_cost_on_defects(defects: tuple[int, ...], n_checks: int) -> int:
 
 
 def matching_decode(graph: SyndromeGraph) -> MatchingOutcome:
-    """Decode measured syndromes with MWPM (path code + defect-pairing cost)."""
+    """MWPM path decode; satisfied only if correction matches hidden ground truth when given."""
     synd = np.asarray(graph.syndrome, dtype=np.int8)
     left = int(graph.left_boundary_logical) % 2
     z = _path_z_chain(synd, left)
-    implied = (z[:-1] + z[1:]) % 2
-    satisfied = bool(np.array_equal(implied, synd))
+    implied = stabilizer_syndrome(z)
+    syndromes_match = bool(np.array_equal(implied, synd))
     defects = tuple(int(i) for i in np.flatnonzero(synd))
     pair_cost = _mwpm_cost_on_defects(defects, synd.size)
     weight_cost = int(z.sum())
     matching_cost = pair_cost + weight_cost
-    logical = int(z[-1])
+
+    satisfied = syndromes_match
+    if graph.hidden_z is not None:
+        satisfied = satisfied and bool(np.array_equal(z, graph.hidden_z))
+
     return MatchingOutcome(
         satisfied=satisfied,
-        logical_correction=logical,
+        logical_correction=int(z[-1]),
         matching_cost=matching_cost,
+        z_correction=tuple(int(v) for v in z),
     )
 
 
@@ -82,19 +93,16 @@ def confirm_speculation_with_matching(
     syndrome: np.ndarray,
     *,
     assumed_pred_logical: int,
-    true_pred_logical: int,
+    hidden_z: np.ndarray,
 ) -> bool:
-    """Compare MWPM/path decode under assumed vs true predecessor boundary on same syndrome."""
-    synd = np.asarray(syndrome, dtype=np.int8)
-    assumed = matching_decode(
-        SyndromeGraph(syndrome=synd, left_boundary_logical=int(assumed_pred_logical) % 2, n_data_qubits=synd.size + 1)
+    """Speculation confirmed when assumed-boundary MWPM correction equals hidden ground truth."""
+    graph = SyndromeGraph(
+        syndrome=np.asarray(syndrome, dtype=np.int8),
+        left_boundary_logical=int(assumed_pred_logical) % 2,
+        n_data_qubits=int(syndrome.size) + 1,
+        hidden_z=np.asarray(hidden_z, dtype=np.int8),
     )
-    truth = matching_decode(
-        SyndromeGraph(syndrome=synd, left_boundary_logical=int(true_pred_logical) % 2, n_data_qubits=synd.size + 1)
-    )
-    if not assumed.satisfied or not truth.satisfied:
-        return False
-    return assumed.logical_correction == truth.logical_correction
+    return matching_decode(graph).satisfied
 
 
 def verify_window_speculation(
@@ -104,18 +112,19 @@ def verify_window_speculation(
     pred_verified: bool,
     seed: int,
     syndrome: np.ndarray | None = None,
+    hidden_z: np.ndarray | None = None,
 ) -> bool:
-    """Build syndrome for this window and confirm assumed (0) vs true predecessor logical."""
-    from core.syndrome_graph import generate_window_syndrome
-
-    synd = (
-        generate_window_syndrome(window_id=window_id, pred_id=pred_id, seed=seed)
-        if syndrome is None
-        else np.asarray(syndrome, dtype=np.int8)
-    )
+    """Confirm assumed predecessor (0) against syndrome + hidden Z ground truth."""
     true_left = true_predecessor_logical(pred_id=pred_id, pred_verified=pred_verified, seed=seed)
+    if syndrome is None or hidden_z is None:
+        syndrome, hidden_z = generate_window_syndrome_with_truth(
+            window_id=window_id,
+            pred_id=pred_id,
+            seed=seed,
+            true_pred_logical=true_left,
+        )
     return confirm_speculation_with_matching(
-        synd,
+        syndrome,
         assumed_pred_logical=0,
-        true_pred_logical=true_left,
+        hidden_z=hidden_z,
     )

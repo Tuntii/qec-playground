@@ -53,6 +53,8 @@ class _Window:
     decode_remaining: int = 0
     verify_remaining: int = 0
     restarts: int = 0
+    syndrome_measured: np.ndarray | None = None
+    hidden_z: np.ndarray | None = None
 
 
 @dataclass
@@ -157,6 +159,8 @@ def _reset_speculation(window: _Window) -> None:
     window.speculated = False
     window.speculation_correct = None
     window.speculation_depth = 0
+    window.syndrome_measured = None
+    window.hidden_z = None
 
 
 def _handle_mis_speculation(
@@ -196,9 +200,24 @@ def _try_promote_pending(
     # Predictor accuracy gates whether we speculate early on an unverified predecessor.
     if rng.random() >= config.speculation_accuracy:
         return False
+    from core.syndrome_graph import generate_window_syndrome_with_truth, true_predecessor_logical
+
+    true_left = true_predecessor_logical(
+        pred_id=window.pred_id,
+        pred_verified=False,
+        seed=config.seed,
+    )
+    synd, hidden_z = generate_window_syndrome_with_truth(
+        window_id=window.window_id,
+        pred_id=window.pred_id,
+        seed=config.seed,
+        true_pred_logical=true_left,
+    )
     window.speculated = True
     window.speculation_depth = _compute_speculation_depth(windows, window)
     window.speculation_correct = None
+    window.syndrome_measured = synd
+    window.hidden_z = hidden_z
     counters["speculation_count"] += 1
     return True
 
@@ -267,12 +286,15 @@ def run_swiper_simulation(
                 window.decode_remaining -= 1
                 if window.decode_remaining <= 0:
                     if window.speculated and config.speculative:
-                        pred_ok = verify_window_speculation(
-                            window_id=window.window_id,
-                            pred_id=window.pred_id,
-                            pred_verified=_pred_verified(windows, window.pred_id),
-                            seed=config.seed,
-                        )
+                        from core.matching_decoder import confirm_speculation_with_matching
+
+                        pred_ok = False
+                        if window.syndrome_measured is not None and window.hidden_z is not None:
+                            pred_ok = confirm_speculation_with_matching(
+                                window.syndrome_measured,
+                                assumed_pred_logical=0,
+                                hidden_z=window.hidden_z,
+                            )
                         if pred_ok:
                             counters["speculation_correct_count"] += 1
                             window.state = "verified"
