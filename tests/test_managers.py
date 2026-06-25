@@ -136,6 +136,39 @@ def test_emit_trace_populated(capsys):
     assert "active_patches" in run["program_trace"][0]
 
 
+def test_conditional_wait_not_double_counted(capsys):
+    """Each blocked stall round counted exactly once (not batch + per-round)."""
+    schedule = default_three_t_injection()
+    device = DeviceManager(schedule=schedule, seed=0)
+    chain = device.chains[0]
+    block_idx = schedule.blocking_window_index
+    dep_idx = block_idx - 1
+
+    for round_idx in range(5, 10):
+        chain.blocked = True
+        chain.block_start = 5
+        device.account_conditional_stalls(
+            [],
+            round_idx,
+            speculative=False,
+            window_verified={(0, dep_idx): False},
+        )
+
+    device.update_blocking(
+        10,
+        window_appeared={(0, block_idx): True},
+        window_verified={(0, dep_idx): True},
+    )
+    device.account_conditional_stalls(
+        [],
+        10,
+        speculative=False,
+        window_verified={(0, dep_idx): True},
+    )
+    print(f"cond_wait={chain.cond_wait_rounds}")
+    assert chain.cond_wait_rounds == 5
+
+
 def test_blocking_stalls_nonspec_appearance(capsys):
     schedule = default_three_t_injection()
     device = DeviceManager(schedule=schedule, seed=42)

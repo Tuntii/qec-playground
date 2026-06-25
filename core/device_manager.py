@@ -171,7 +171,6 @@ class DeviceManager:
                         chain.block_start = round_idx
             elif chain.block_start is not None:
                 if window_verified.get((chain.chain_id, dep_idx), False):
-                    chain.cond_wait_rounds += round_idx - chain.block_start
                     chain.blocked = False
                     chain.block_start = None
 
@@ -183,11 +182,14 @@ class DeviceManager:
         speculative: bool,
         window_verified: dict[tuple[int, int], bool],
     ) -> None:
-        """Count rounds nonspec chains wait on Conditional-S predecessor verification."""
-        if speculative:
-            return
+        """Count each Conditional-S stall round once (blocked state or nonspec dep wait)."""
         dep_idx = self.schedule.blocking_window_index - 1
         for chain in self.chains:
+            if chain.blocked:
+                chain.cond_wait_rounds += 1
+                continue
+            if speculative:
+                continue
             waiting = any(
                 w.chain_id == chain.chain_id
                 and w.index_in_chain >= self.schedule.blocking_window_index
@@ -196,7 +198,7 @@ class DeviceManager:
                 and not window_verified.get((w.chain_id, dep_idx), False)
                 for w in windows
             )
-            if waiting or chain.blocked:
+            if waiting:
                 chain.cond_wait_rounds += 1
 
     def total_conditional_wait_rounds(self) -> int:
