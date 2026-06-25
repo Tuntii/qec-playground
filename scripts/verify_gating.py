@@ -114,6 +114,16 @@ print('completed=', res.get('completed'))
         return _fail("1", f"non-positive conditional wait spec={spec_wait} nonspec={nonspec_wait}")
     if max_dec < 0:
         return _fail("1", f"invalid max_decoders {max_dec}")
+    try:
+        from core.simulator import run_simulation
+
+        res = run_simulation(seed=42, schedule_id="three_t_injection")
+        spec_rt = float(res["speculative"]["total_decoding_time_us"])
+        nonspec_rt = float(res["non_speculative"]["total_decoding_time_us"])
+        if spec_rt > nonspec_rt:
+            return _fail("1", f"spec_runtime {spec_rt} > nonspec_runtime {nonspec_rt}")
+    except Exception as exc:
+        return _fail("1", f"runtime check failed: {exc}")
     return None
 
 

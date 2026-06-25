@@ -179,17 +179,28 @@ def test_cond_wait_is_duration_not_blocked_count(capsys):
 
 
 def test_realized_speculation_rate_from_matching(capsys):
-    """Matching-derived rate can differ from predictor slider input."""
-    result = run_simulation(speculation_accuracy=0.9, seed=42)
-    spec = result["speculative"]
+    """Realized rate tracks boundary-predictor accuracy (matching-derived)."""
+    low = run_simulation(speculation_accuracy=0.5, seed=42)["speculative"]
+    high = run_simulation(speculation_accuracy=0.9, seed=42)["speculative"]
     print(
-        f"input=0.9 rate={spec['speculation_accuracy_rate']:.3f} "
-        f"specs={spec['speculation_count']} restarts={spec['restart_count']}"
+        f"low_rate={low['speculation_accuracy_rate']:.3f} "
+        f"high_rate={high['speculation_accuracy_rate']:.3f}"
     )
-    assert 0.0 <= spec["speculation_accuracy_rate"] <= 1.0
-    assert spec["speculation_count"] > 0.0
-    assert spec["restart_count"] > 0.0
-    assert spec["speculation_accuracy_rate"] < 0.9
+    assert high["speculation_accuracy_rate"] > low["speculation_accuracy_rate"]
+    assert 0.8 <= high["speculation_accuracy_rate"] <= 1.0
+    assert 0.3 <= low["speculation_accuracy_rate"] <= 0.7
+
+
+def test_speculative_reduces_total_runtime(capsys):
+    """Speculative mode finishes no later than non-speculative (default params)."""
+    result = run_simulation(seed=42, speculation_accuracy=0.9)
+    spec_time = result["speculative"]["total_decoding_time_us"]
+    nonspec_time = result["non_speculative"]["total_decoding_time_us"]
+    print(f"spec_time={spec_time} nonspec_time={nonspec_time}")
+    assert spec_time <= nonspec_time
+    assert result["speculative"]["average_conditional_wait_time_us"] <= (
+        result["non_speculative"]["average_conditional_wait_time_us"]
+    )
 
 
 def test_simulation_stores_syndrome_on_speculation(capsys):

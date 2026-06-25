@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -43,6 +44,7 @@ class DecodeWindow:
     restarts: int = 0
     syndrome_measured: np.ndarray | None = None
     hidden_z: np.ndarray | None = None
+    assumed_pred_logical: int | None = None
 
 
 @dataclass
@@ -104,9 +106,18 @@ class WindowManager:
             for w in self.windows:
                 w.gen_round = w.index_in_chain * self.interval
 
-    def tick_appearances(self, round_idx: int) -> list[DecodeWindow]:
+    def tick_appearances(
+        self,
+        round_idx: int,
+        *,
+        allow: Callable[[DecodeWindow], bool] | None = None,
+    ) -> list[DecodeWindow]:
         """Mark windows that appear this round (strategy-aware for aligned)."""
         newly: list[DecodeWindow] = []
+
+        def _allowed(window: DecodeWindow) -> bool:
+            return allow(window) if allow is not None else True
+
         if self.strategy == WindowStrategy.ALIGNED.value:
             target_index = self.aligned_barrier
             if target_index >= self.schedule.windows_per_chain:
@@ -127,14 +138,18 @@ class WindowManager:
                         break
             if chains_ready:
                 for w in self.windows:
-                    if not w.appeared and w.index_in_chain == target_index:
+                    if (
+                        not w.appeared
+                        and w.index_in_chain == target_index
+                        and _allowed(w)
+                    ):
                         w.appeared = True
                         newly.append(w)
                 if newly:
                     self.aligned_barrier += 1
         else:
             for w in self.windows:
-                if not w.appeared and round_idx >= w.gen_round:
+                if not w.appeared and round_idx >= w.gen_round and _allowed(w):
                     w.appeared = True
                     newly.append(w)
         return newly

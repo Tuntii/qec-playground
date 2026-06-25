@@ -1,4 +1,4 @@
-"""DeviceManager — per-round active patches and syndrome emission (SWIPER-SIM)."""
+"""DeviceManager — per-round active patches, syndromes, blocking Conditional-S."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import numpy as np
 
 from core.schedule import LatticeSurgerySchedule, PatchOpType, ProgramOp
 from core.syndrome_graph import generate_window_syndrome_with_truth, true_predecessor_logical
+from core.window_manager import DecodeWindow
 
 
 @dataclass(frozen=True)
@@ -35,33 +36,15 @@ class DeviceManager:
     seed: int
     cycle_time_us: float = 1.0
     chains: list[ChainBlockingState] = field(default_factory=list)
-    _active_patch_map: dict[int, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.chains:
             self.chains = [
                 ChainBlockingState(chain_id=c) for c in range(self.schedule.parallelism)
             ]
-        self._refresh_active_patches()
-
-    def _refresh_active_patches(self) -> None:
-        """Map chain_id -> active patch_id after merge/split ops."""
-        if self.schedule.program and self.schedule.program.patches:
-            self._active_patch_map = {
-                p.chain_id: p.patch_id
-                for p in self.schedule.program.patches
-                if p.chain_id < self.schedule.parallelism
-            }
-            for op in self.schedule.program.ops:
-                if op.op_type == PatchOpType.MERGE and op.target_patch_id is not None:
-                    for pid in op.patch_ids:
-                        patch = self.schedule.program.patch_by_id(pid)
-                        self._active_patch_map[patch.chain_id] = op.target_patch_id
-        else:
-            self._active_patch_map = {c: c for c in range(self.schedule.parallelism)}
 
     def active_patches_at(self, round_idx: int) -> list[tuple[int, int]]:
-        """Return (patch_id, chain_id) pairs active at this round."""
+        """Return (patch_id, chain_id) pairs active at this round (merge/split aware)."""
         if not self.schedule.program:
             return [(c, c) for c in range(self.schedule.parallelism)]
         active: dict[int, int] = {c: c for c in range(self.schedule.parallelism)}
@@ -78,6 +61,64 @@ class DeviceManager:
                 active[src_patch.chain_id] = op.target_patch_id
         return [(pid, chain) for chain, pid in sorted(active.items())]
 
+    def patch_id_for_chain(self, round_idx: int, chain_id: int) -> int:
+        for patch_id, chain in self.active_patches_at(round_idx):
+            if chain == chain_id:
+                return patch_id
+        return chain_id
+
+    def sync_window_patches(self, windows: list[DecodeWindow], round_idx: int) -> None:
+        """Remap window patch_id after merge/split ops at this round."""
+        for window in windows:
+            window.patch_id = self.patch_id_for_chain(round_idx, window.chain_id)
+
+    def ops_at_round(self, round_idx: int) -> tuple[ProgramOp, ...]:
+        if not self.schedule.program:
+            return ()
+        return self.schedule.program.ops_at_round(round_idx)
+
+    def is_chain_blocked(self, chain_id: int) -> bool:
+        return any(c.chain_id == chain_id and c.blocked for c in self.chains)
+
+    def blocks_window_progress(
+        self,
+        window: DecodeWindow,
+        *,
+        speculative: bool,
+        speculated: bool,
+    ) -> bool:
+        """Conditional-S stall: post-blocking windows wait until dep verified."""
+        if window.index_in_chain < self.schedule.blocking_window_index:
+            return False
+        if not self.is_chain_blocked(window.chain_id):
+            return False
+        if speculative and speculated:
+            return False
+        return True
+
+    def appearance_allowed(
+        self,
+        window: DecodeWindow,
+        round_idx: int,
+        *,
+        speculative: bool,
+        window_verified: dict[tuple[int, int], bool],
+    ) -> bool:
+        """Device gates window exposure at Conditional-S boundaries."""
+        if round_idx < window.gen_round:
+            return False
+        dep_idx = self.schedule.blocking_window_index - 1
+        if not speculative and window.index_in_chain >= self.schedule.blocking_window_index:
+            if not window_verified.get((window.chain_id, dep_idx), False):
+                return False
+        if (
+            not speculative
+            and self.is_chain_blocked(window.chain_id)
+            and window.index_in_chain >= self.schedule.blocking_window_index
+        ):
+            return False
+        return True
+
     def emit_syndrome(
         self,
         *,
@@ -87,11 +128,16 @@ class DeviceManager:
         pred_id: int | None,
         pred_verified: bool,
         round_idx: int,
+        true_pred_logical: int | None = None,
     ) -> PatchSyndrome:
-        true_left = true_predecessor_logical(
-            pred_id=pred_id,
-            pred_verified=pred_verified,
-            seed=self.seed,
+        true_left = (
+            int(true_pred_logical) % 2
+            if true_pred_logical is not None
+            else true_predecessor_logical(
+                pred_id=pred_id,
+                pred_verified=pred_verified,
+                seed=self.seed,
+            )
         )
         synd, hidden_z = generate_window_syndrome_with_truth(
             window_id=window_id,
@@ -129,10 +175,36 @@ class DeviceManager:
                     chain.blocked = False
                     chain.block_start = None
 
+    def account_conditional_stalls(
+        self,
+        windows: list[DecodeWindow],
+        round_idx: int,
+        *,
+        speculative: bool,
+        window_verified: dict[tuple[int, int], bool],
+    ) -> None:
+        """Count rounds nonspec chains wait on Conditional-S predecessor verification."""
+        if speculative:
+            return
+        dep_idx = self.schedule.blocking_window_index - 1
+        for chain in self.chains:
+            waiting = any(
+                w.chain_id == chain.chain_id
+                and w.index_in_chain >= self.schedule.blocking_window_index
+                and not w.appeared
+                and round_idx >= w.gen_round
+                and not window_verified.get((w.chain_id, dep_idx), False)
+                for w in windows
+            )
+            if waiting or chain.blocked:
+                chain.cond_wait_rounds += 1
+
     def total_conditional_wait_rounds(self) -> int:
         return sum(c.cond_wait_rounds for c in self.chains)
 
-    def blocking_ops_pending_verification(self, window_verified: dict[tuple[int, int], bool]) -> list[ProgramOp]:
+    def blocking_ops_pending_verification(
+        self, window_verified: dict[tuple[int, int], bool]
+    ) -> list[ProgramOp]:
         pending: list[ProgramOp] = []
         if not self.schedule.program:
             return pending

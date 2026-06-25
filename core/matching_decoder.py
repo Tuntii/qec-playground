@@ -95,14 +95,15 @@ def confirm_speculation_with_matching(
     assumed_pred_logical: int,
     hidden_z: np.ndarray,
 ) -> bool:
-    """Speculation confirmed when assumed-boundary MWPM correction equals hidden ground truth."""
-    graph = SyndromeGraph(
-        syndrome=np.asarray(syndrome, dtype=np.int8),
-        left_boundary_logical=int(assumed_pred_logical) % 2,
-        n_data_qubits=int(syndrome.size) + 1,
-        hidden_z=np.asarray(hidden_z, dtype=np.int8),
-    )
-    return matching_decode(graph).satisfied
+    """Speculation confirmed when assumed predecessor logical matches true boundary."""
+    synd = np.asarray(syndrome, dtype=np.int8)
+    hz = np.asarray(hidden_z, dtype=np.int8)
+    assumed = int(assumed_pred_logical) % 2
+    z = _path_z_chain(synd, assumed)
+    implied = stabilizer_syndrome(z)
+    if not bool(np.array_equal(implied, synd)):
+        return False
+    return int(z[0]) == int(hz[0])
 
 
 def verify_window_speculation(

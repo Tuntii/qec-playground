@@ -6,6 +6,7 @@ from core.decoder_manager import BoundaryPredictor, DecoderManager
 from core.device_manager import DeviceManager
 from core.schedule import default_three_t_injection, merge_split_example
 from core.swiper_sim import SwiperConfig, run_swiper_simulation
+from core.syndrome_graph import true_predecessor_logical
 from core.window_manager import WindowBuilder, WindowManager, WindowStrategy
 
 
@@ -36,12 +37,29 @@ def test_device_manager_emits_syndrome(capsys):
     assert patch.hidden_z.shape[0] == patch.syndrome.shape[0] + 1
 
 
-def test_boundary_predictor_accuracy(capsys):
+def test_active_patches_remap_after_merge_round(capsys):
+    schedule = merge_split_example()
+    device = DeviceManager(schedule=schedule, seed=0)
+    before = {chain: pid for pid, chain in device.active_patches_at(11)}
+    after = {chain: pid for pid, chain in device.active_patches_at(12)}
+    print(f"before={before} after={after}")
+    assert before.get(0) == 0
+    assert before.get(1) == 1
+    assert after.get(0) == 2
+    assert after.get(1) == 2
+
+
+def test_boundary_predictor_tracks_accuracy(capsys):
     pred = BoundaryPredictor(accuracy=1.0, seed=0)
-    rng = np.random.default_rng(0)
-    hits = sum(1 for _ in range(20) if pred.should_speculate(rng))
+    rng = np.random.default_rng(99)
+    true_val = 1
+    hits = sum(1 for _ in range(50) if pred.predict_boundary(true_val, rng) == true_val)
     print(f"hits={hits}")
-    assert hits == 20
+    assert hits == 50
+    pred_lo = BoundaryPredictor(accuracy=0.0, seed=0)
+    rng2 = np.random.default_rng(99)
+    misses = sum(1 for _ in range(50) if pred_lo.predict_boundary(0, rng2) != 0)
+    assert misses == 50
 
 
 def test_decoder_manager_tracks_concurrency(capsys):
@@ -78,13 +96,20 @@ def test_aligned_strategy_differs_from_parallel(capsys):
     )
 
 
-def test_merge_split_schedule_completes(capsys):
+def test_merge_split_blocking_increases_nonspec_runtime(capsys):
     schedule = merge_split_example()
-    run = run_swiper_simulation(schedule, SwiperConfig(seed=7))
-    m = run["metrics"]
-    print(f"completed={run['completed']} max_dec={m['max_concurrent_decoders']}")
-    assert run["completed"] is True
-    assert m["max_concurrent_decoders"] >= 0
+    spec = run_swiper_simulation(schedule, SwiperConfig(speculative=True, seed=7))["metrics"]
+    nonspec = run_swiper_simulation(schedule, SwiperConfig(speculative=False, seed=7))["metrics"]
+    device = DeviceManager(schedule=schedule, seed=7)
+    device.sync_window_patches(WindowBuilder(schedule, 1).build(), 12)
+    merged_patch = device.patch_id_for_chain(12, 0)
+    print(
+        f"merged_patch={merged_patch} spec_time={spec['total_decoding_time_us']} "
+        f"nonspec_time={nonspec['total_decoding_time_us']} nonspec_wait={nonspec['average_conditional_wait_time_us']}"
+    )
+    assert merged_patch == 2
+    assert nonspec["average_conditional_wait_time_us"] > 0.0
+    assert spec["total_decoding_time_us"] <= nonspec["total_decoding_time_us"]
 
 
 def test_window_manager_adjacent_dependents(capsys):
@@ -108,3 +133,19 @@ def test_emit_trace_populated(capsys):
     print(f"trace_len={len(run.get('program_trace', []))}")
     assert "program_trace" in run
     assert len(run["program_trace"]) > 0
+    assert "active_patches" in run["program_trace"][0]
+
+
+def test_blocking_stalls_nonspec_appearance(capsys):
+    schedule = default_three_t_injection()
+    device = DeviceManager(schedule=schedule, seed=42)
+    wm = WindowManager(schedule=schedule, strategy="parallel", interval=1)
+    w = next(x for x in wm.windows if x.index_in_chain == schedule.blocking_window_index)
+    allowed = device.appearance_allowed(
+        w,
+        w.gen_round,
+        speculative=False,
+        window_verified={},
+    )
+    print(f"allowed_without_dep={allowed}")
+    assert allowed is False

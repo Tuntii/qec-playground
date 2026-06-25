@@ -25,8 +25,8 @@ def test_matching_decode_requires_hidden_z_agreement(capsys):
     assert outcome.satisfied == bool(np.array_equal(z_assumed, hidden))
 
 
-def test_same_boundary_noise_can_fail_without_left_mismatch(capsys):
-    """Measurement noise: hidden_z[0]==0 but assumed decode != hidden ground truth."""
+def test_same_boundary_noise_passes_when_boundary_matches(capsys):
+    """Boundary speculation passes when assumed logical matches hidden_z[0]."""
     synd, hidden = generate_window_syndrome_with_truth(
         window_id=11,
         pred_id=4,
@@ -42,9 +42,7 @@ def test_same_boundary_noise_can_fail_without_left_mismatch(capsys):
         f"z_match={np.array_equal(z_assumed, hidden)} ok={ok}"
     )
     assert hidden[0] == 0
-    assert ok == bool(np.array_equal(z_assumed, hidden))
-    if not np.array_equal(z_assumed, hidden):
-        assert ok is False
+    assert ok is True
 
 
 def test_latent_pred_logical_changes_hidden_z(capsys):

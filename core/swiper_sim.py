@@ -111,11 +111,29 @@ def run_swiper_simulation(
     completed = False
 
     while t < safety_limit:
-        wm.tick_appearances(t)
+        device.sync_window_patches(wm.windows, t)
+        round_ops = device.ops_at_round(t)
+
+        verified_now = wm.verified_map()
+        wm.tick_appearances(
+            t,
+            allow=lambda w: device.appearance_allowed(
+                w,
+                t,
+                speculative=config.speculative,
+                window_verified=verified_now,
+            ),
+        )
         device.update_blocking(
             t,
             window_appeared=wm.appeared_map(),
-            window_verified=wm.verified_map(),
+            window_verified=verified_now,
+        )
+        device.account_conditional_stalls(
+            wm.windows,
+            t,
+            speculative=config.speculative,
+            window_verified=verified_now,
         )
 
         for window in wm.windows:
@@ -126,37 +144,22 @@ def run_swiper_simulation(
 
         for window in wm.windows:
             if window.appeared and window.state == "pending":
-                patch_id = window.patch_id
-                synd_obj = None
-                if config.speculative and window.pred_id is not None and not wm.pred_verified(window.pred_id):
-                    synd_obj = device.emit_syndrome(
-                        window_id=window.window_id,
-                        patch_id=patch_id,
-                        chain_id=window.chain_id,
-                        pred_id=window.pred_id,
-                        pred_verified=False,
-                        round_idx=t,
-                    )
-                promoted = decoder.try_promote_pending(
-                    window,
-                    wm,
-                    rng,
-                    syndrome=synd_obj.syndrome if synd_obj else None,
-                    hidden_z=synd_obj.hidden_z if synd_obj else None,
-                )
-                if promoted:
+                if decoder.try_promote_pending(window, wm, device, rng, round_idx=t):
                     window.state = "ready"
 
-        decoder.dispatch(wm, config.ordering_strategy, t)
+        decoder.dispatch(wm, device, config.ordering_strategy, t)
 
         active = wm.active_windows()
         backlog_samples.append(len(active))
 
         if config.emit_trace:
             snap = wm.trace_snapshot(t)
+            snap["round_ops"] = [op.op_type.value for op in round_ops]
+            snap["active_patches"] = device.active_patches_at(t)
             snap["blocking_pending"] = len(
                 device.blocking_ops_pending_verification(wm.verified_map())
             )
+            snap["blocked_chains"] = [c.chain_id for c in device.chains if c.blocked]
             program_trace.append(snap)
 
         if wm.all_verified():

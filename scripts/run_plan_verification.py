@@ -53,6 +53,19 @@ print('completed=', res.get('completed'))
     write("sim_direct.log", proc1.stdout + proc1.stderr)
     if proc1.returncode != 0:
         return 1
+    sim_log = (SCRATCH / "sim_direct.log").read_text(encoding="utf-8")
+    if "completed= True" not in sim_log and "completed=True" not in sim_log.replace(" ", ""):
+        print("PLAN_VERIFY_FAIL: completed not True in sim_direct.log")
+        return 1
+    spec_rt = nonspec_rt = None
+    for line in sim_log.splitlines():
+        if line.startswith("spec_runtime="):
+            spec_rt = float(line.split("=", 1)[1].strip())
+        if line.startswith("nonspec_runtime="):
+            nonspec_rt = float(line.split("=", 1)[1].strip())
+    if spec_rt is not None and nonspec_rt is not None and spec_rt > nonspec_rt:
+        print(f"PLAN_VERIFY_FAIL: spec_runtime {spec_rt} > nonspec_runtime {nonspec_rt}")
+        return 1
 
     # Step 2 — CLI x2 + consistency + full variant
     for name in ("cli1", "cli2"):
