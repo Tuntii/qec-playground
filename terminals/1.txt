@@ -1,0 +1,22 @@
+---
+pid: 25232
+cwd: "C:\Users\tunay\Documents\GitHub\qec-playground"
+command: "Set-Location \"C:\\Users\\tunay\\Documents\\GitHub\\qec-playground\"; python -m pytest tests/test_launch.py tests/ -q --tb=line 2>&1 | Select-Object -Last 8"
+started_at: 2026-06-25T12:05:35.317Z
+running_for_ms: 4040010  
+---
+........                                                                 [100%]python : C:\Users\tunay\AppData\Roaming\Python\Python313\site-packages\pytest_asyncio\plugin.py:207: PytestDeprecationW
+
+8 passed in 119.54s (0:01:59)
+arning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+At line:1 char:64
++ ... layground"; python -m pytest tests/test_launch.py tests/ -q --tb=line ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\tunay\...cope" is unset.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asy
+ncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explic
+itly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module",
+ "package", "session"
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))

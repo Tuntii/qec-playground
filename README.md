@@ -4,15 +4,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-49%20passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)](#tests)
 
 ![QEC-Playground dashboard — sliders, Run Simulation, and charts](assets/hero.png)
 
-> **Scope:** This repo implements the paper's analysis mechanics (processor-limited speculative window scheduling, lattice-surgery workloads, sensitivity axes) as a pure Python round-stepped model. Distinct from the full SWIPER-SIM in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER) — Li & Martonosi do not publish their modified SWIPER-SIM source; this project is the first open-source tool aimed specifically at their workshop analysis.
+> **Scope:** Round-stepped speculative window scheduling with **real syndrome graph construction** and a **matching decoder** (MWPM on 1D check paths) to confirm or reject speculation. Distinct from the full SWIPER-SIM in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER) — not an exact copy of Li & Martonosi paper figures or numeric results.
 
-**What you get:** compare speculative vs non-speculative parallel window decoding on representative schedules (e.g. three parallel T-gate injections with blocking Conditional-S instructions). Tune processors, gate speed (1µs / 2µs), speculation accuracy, decoder latency, and ordering strategies — see decoding time, backlog, conditional wait, and UI window count in microseconds.
+**What you get:** compare speculative vs non-speculative parallel window decoding on representative schedules (e.g. three parallel T-gate injections with blocking Conditional-S instructions). The **speculation accuracy slider** gates attempt probability; the **realized speculation rate** comes from matching outcomes and can differ. Tune processors, gate speed (1µs / 2µs), decoder latency, and ordering — see decoding time, backlog, conditional wait, UI windows, and restart stats.
 
-**What this is not:** a full SWIPER-SIM reproduction, physical syndrome-graph decoder, or exact replication of paper figures.
+**What this is not:** a full SWIPER-SIM reproduction, large-scale surface-code compilation, or exact replication of paper figures/tables.
 
 ## Quick start
 
@@ -85,9 +85,11 @@ python scripts/deploy_hf_space.py
 
 ```
 app.py              # Streamlit UI and `python app.py` CLI
-core/               # Round-stepped SWIPER-SIM-style speculative window decoder
+core/               # Syndrome graph + matching decoder + round-stepped scheduler
+  syndrome_graph.py # Defect syndromes per decode round
+  matching_decoder.py # MWPM confirmation of speculation
   schedule.py       # Lattice-surgery schedule templates
-  swiper_sim.py     # Round-stepped window state machine + metrics
+  swiper_sim.py     # Window state machine + metrics
   simulator.py      # run_simulation() entry point
 ui/                 # Sliders, charts, export, schedule loader
 examples/           # JSON lattice-surgery schedule templates

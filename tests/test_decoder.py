@@ -1,7 +1,10 @@
 """Tests for backward-compatible decoder API."""
 
 from core.decoder import compare_decoders, simulate_naive_decoder, simulate_speculative_decoder
+from core.matching_decoder import matching_decode
 from core.schedule import default_three_t_injection
+from core.syndrome_graph import build_syndrome_graph
+import numpy as np
 
 
 def test_speculative_decoder_outputs_paper_metrics(capsys):
@@ -35,3 +38,20 @@ def test_compare_decoders_with_schedule(capsys):
     print(f"schedule_id: {schedule.id}")
     assert "speculative" in comparison
     assert "naive" in comparison
+
+
+def test_decoder_api_exposes_matching_metrics(capsys):
+    result = simulate_speculative_decoder(seed=42)
+    print(
+        f"rate={result.get('speculation_accuracy_rate')} "
+        f"count={result.get('speculation_count')}"
+    )
+    assert "speculation_accuracy_rate" in result
+    assert 0.0 <= result["speculation_accuracy_rate"] <= 1.0
+
+
+def test_matching_decoder_on_graph(capsys):
+    graph = build_syndrome_graph(np.array([0, 1, 1, 0], dtype=np.int8), left_boundary_logical=0)
+    out = matching_decode(graph)
+    print(f"pair_match satisfied={out.satisfied} cost={out.matching_cost}")
+    assert out.satisfied is True

@@ -116,8 +116,8 @@ def run_streamlit() -> None:
     st.caption(
         "First open-source lightweight playground — Jocelyn Li and Margaret Martonosi, "
         "An Analysis of Speculative Window Decoders for Quantum Error Correction "
-        "(arXiv:2606.24048). Round-stepped speculative window decoder analysis; "
-        "not the full ISCA 2025 SWIPER-SIM."
+        "(arXiv:2606.24048). Syndrome graph + matching decoder confirmation; "
+        "round-stepped scheduling — not the full ISCA 2025 SWIPER-SIM or paper figure copy."
     )
 
     templates = list_templates()

@@ -40,12 +40,17 @@ OVERCLAIM_MARKERS = (
 
 UI_SOURCE_PATHS = (ROOT / "app.py",) + tuple(sorted((ROOT / "ui").glob("*.py")))
 CORE_SOURCE_PATHS = (
+    ROOT / "core" / "syndrome_graph.py",
+    ROOT / "core" / "matching_decoder.py",
     ROOT / "core" / "swiper_sim.py",
     ROOT / "core" / "simulator.py",
     ROOT / "core" / "schedule.py",
     ROOT / "core" / "decoder.py",
     ROOT / "core" / "__init__.py",
 )
+SYNDROME_GRAPH_MARKER = "syndrome graph"
+MATCHING_DECODER_MARKER = "matching decoder"
+NOT_PAPER_FIGURE_MARKER = "not an exact copy"
 TEST_SOURCE_PATHS = tuple(sorted((ROOT / "tests").glob("test_*.py")))
 SOURCE_SCAN_PATHS = UI_SOURCE_PATHS + CORE_SOURCE_PATHS + TEST_SOURCE_PATHS
 
@@ -133,6 +138,10 @@ def check_readme(text: str) -> dict[str, bool]:
         "paper_arxiv": PAPER_ARXIV in text,
         "assets_path": HERO_MARKDOWN_REF in text,
         "license_linked": LICENSE_MARKDOWN_REF in text,
+        "syndrome_graph_described": SYNDROME_GRAPH_MARKER in text.lower(),
+        "matching_decoder_described": MATCHING_DECODER_MARKER in text.lower(),
+        "not_paper_figure_copy": NOT_PAPER_FIGURE_MARKER in text.lower()
+        or "exact replication of paper figures" in text.lower(),
     }
     checks.update(check_positioning(text))
     return checks

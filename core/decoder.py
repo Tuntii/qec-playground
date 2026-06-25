@@ -1,6 +1,6 @@
-"""Backward-compatible decoder API — delegates to the round-stepped Li & Martonosi model.
+"""Backward-compatible decoder API with syndrome-graph matching (Li & Martonosi).
 
-Distinct from the full SWIPER-SIM in jviszlai/swiper (ISCA 2025 SWIPER).
+Not the full SWIPER-SIM in jviszlai/swiper (ISCA 2025 SWIPER).
 """
 
 from __future__ import annotations

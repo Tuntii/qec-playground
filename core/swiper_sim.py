@@ -1,11 +1,12 @@
 """Round-stepped speculative window decoder model (Li & Martonosi, arXiv:2606.24048).
 
-First open-source lightweight implementation of the paper's analysis scheduling
-mechanics: window generation, pending/ready/decoding/verified states, predecessor
-speculation with misprediction restart, processor-limited dispatch with ordering,
-and blocking conditional-wait accounting.
+Round-stepped speculative window scheduling with real syndrome-graph matching
+decoder confirmation of speculation (not the full SWIPER-SIM in jviszlai/swiper).
 
-Distinct from the full SWIPER-SIM in jviszlai/swiper (ISCA 2025 SWIPER).
+Window generation, pending/ready/decoding/verified states, predecessor speculation
+with misprediction restart, processor-limited dispatch, and conditional-wait
+accounting. Speculation correctness is decided by matching decoder outcomes, not
+predecessor state alone.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from typing import Any
 
 import numpy as np
 
+from core.matching_decoder import verify_window_speculation
 from core.schedule import LatticeSurgerySchedule
 
 
@@ -265,7 +267,12 @@ def run_swiper_simulation(
                 window.decode_remaining -= 1
                 if window.decode_remaining <= 0:
                     if window.speculated and config.speculative:
-                        pred_ok = _pred_verified(windows, window.pred_id)
+                        pred_ok = verify_window_speculation(
+                            window_id=window.window_id,
+                            pred_id=window.pred_id,
+                            pred_verified=_pred_verified(windows, window.pred_id),
+                            seed=config.seed,
+                        )
                         if pred_ok:
                             counters["speculation_correct_count"] += 1
                             window.state = "verified"
