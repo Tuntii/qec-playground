@@ -24,9 +24,11 @@ app_port: 7860
 
 # QEC-Playground
 
-First open-source interactive playground for Li & Martonosi speculative window decoders ([arXiv:2606.24048](https://arxiv.org/abs/2606.24048)).
+First open-source **full SWIPER-SIM behavioral model** for Li & Martonosi speculative window decoders ([arXiv:2606.24048](https://arxiv.org/abs/2606.24048)).
 
-Tune processors, gate speed, speculation accuracy, and ordering — compare speculative vs non-speculative decoding metrics live.
+DeviceManager + WindowManager + DecoderManager — parallel/aligned/sliding strategies, blocking Conditional-S, matching-decoder speculation verify.
+
+Tune processors, gate speed, speculation accuracy, window strategy, and ordering — compare speculative vs non-speculative metrics live.
 """
 
 SLIM_REQUIREMENTS = """numpy>=1.24.0

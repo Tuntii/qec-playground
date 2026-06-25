@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-69%20passed-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-73%20passed-brightgreen.svg)](#tests)
 
 ![QEC-Playground dashboard — sliders, Run Simulation, and charts](assets/hero.png)
 
