@@ -32,36 +32,31 @@ python app.py --cycle-time-us 2 --processors 4 --schedule three_t_injection
 
 ## Interactive demo
 
-**Live demo:** `YOUR_DEMO_URL` *(replace after Hugging Face Spaces or Streamlit Cloud deploy)*
-
-Example after deploy:
-
-```text
-https://huggingface.co/spaces/YOUR_USERNAME/qec-playground
-```
+**Live demo:** [huggingface.co/spaces/Tunti35/qec-playground](https://huggingface.co/spaces/Tunti35/qec-playground)
 
 Share links in the app use `build_share_url(params, base_url=...)` — set the deployed base via env or pass explicitly:
 
 ```bash
 # Windows
-set QEC_DEMO_BASE_URL=YOUR_DEMO_URL
+set QEC_DEMO_BASE_URL=https://huggingface.co/spaces/Tunti35/qec-playground
 streamlit run app.py
 
 # macOS / Linux
-export QEC_DEMO_BASE_URL=YOUR_DEMO_URL
+export QEC_DEMO_BASE_URL=https://huggingface.co/spaces/Tunti35/qec-playground
 streamlit run app.py
 ```
 
-### Deploy to Hugging Face Spaces
+### Redeploy to Hugging Face Spaces
 
-1. New Space → SDK: **Streamlit**
-2. Connect this repo (`app.py` + `requirements.txt` at repo root)
-3. Copy the Space URL into `YOUR_DEMO_URL` above and `QEC_DEMO_BASE_URL`
+```bash
+set HF_TOKEN=your_hf_token
+python scripts/deploy_hf_space.py
+```
 
-### Deploy to Streamlit Community Cloud
+### Deploy to Streamlit Community Cloud (alternative)
 
 1. [share.streamlit.io](https://share.streamlit.io) → select repo, main file `app.py`
-2. Use the deployed URL as `YOUR_DEMO_URL` / `QEC_DEMO_BASE_URL`
+2. Set `QEC_DEMO_BASE_URL` to your deployed Streamlit URL
 
 ## Features
 

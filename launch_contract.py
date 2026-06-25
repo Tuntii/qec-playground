@@ -12,7 +12,8 @@ LICENSE_PATH = ROOT / "LICENSE"
 HERO_PATH = ROOT / "assets" / "hero.png"
 ASSETS_DIR = ROOT / "assets"
 
-DEMO_PLACEHOLDER = "YOUR_DEMO_URL"
+DEMO_URL = "https://huggingface.co/spaces/Tunti35/qec-playground"
+DEMO_PLACEHOLDER = "YOUR_DEMO_URL"  # legacy marker; live demo uses DEMO_URL
 STAR_CTA = "Star'ını ver ki quantum dünyasında ilk senin tool'un ünlensin 🔥"
 PAPER_TITLE = "An Analysis of Speculative Window Decoders for Quantum Error Correction"
 PAPER_AUTHORS = "Jocelyn Li and Margaret Martonosi"
@@ -125,7 +126,7 @@ def check_readme(text: str) -> dict[str, bool]:
         "hero_embed": "![QEC-Playground dashboard" in text and f"]({HERO_MARKDOWN_REF})" in text,
         "install": "pip install -r requirements.txt" in text and "streamlit run app.py" in text,
         "cli": CLI_CMD in text,
-        "demo_placeholder": DEMO_PLACEHOLDER in text,
+        "demo_linked": DEMO_URL in text,
         "star_cta": STAR_CTA in text,
         "paper_title": PAPER_TITLE in text,
         "paper_authors": PAPER_AUTHORS in text,
