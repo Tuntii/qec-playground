@@ -1,21 +1,21 @@
-"""Pure helpers for URL query bootstrap and circuit resolution (testable without Streamlit)."""
+"""Pure helpers for URL query bootstrap and schedule resolution (testable without Streamlit)."""
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
-from ui.circuit_loader import CircuitTemplate, parse_qasm
+from ui.schedule_loader import ScheduleTemplate
 
 
-def circuit_name_from_query(
-    templates: list[CircuitTemplate],
+def schedule_name_from_query(
+    templates: list[ScheduleTemplate],
     query: dict[str, Any],
 ) -> str:
-    """Map a share-link ``circuit`` id to a template display name."""
-    circuit_id = query.get("circuit")
-    if circuit_id:
+    """Map a share-link ``schedule`` id to a template display name."""
+    schedule_id = query.get("schedule") or query.get("circuit")
+    if schedule_id:
         for template in templates:
-            if template.id == circuit_id:
+            if template.id == schedule_id:
                 return template.name
     return templates[0].name
 
@@ -39,43 +39,14 @@ def take_query_restore(
     return dict(query)
 
 
-def init_circuit_select_from_query(
+def init_schedule_select_from_query(
     session: dict[str, Any],
-    templates: list[CircuitTemplate],
+    templates: list[ScheduleTemplate],
     query_restore: dict[str, Any] | None,
     *,
-    widget_key: str = "circuit_select",
+    widget_key: str = "schedule_select",
 ) -> None:
-    """Seed the circuit selectbox widget key once from a share-link query."""
+    """Seed the schedule selectbox widget key once from a share-link query."""
     if widget_key in session or not query_restore:
         return
-    session[widget_key] = circuit_name_from_query(templates, query_restore)
-
-
-def clear_qasm_state(session: dict[str, Any]) -> None:
-    """Reset QASM override when the user picks a different built-in template."""
-    session["qasm_text"] = ""
-    session["use_qasm_import"] = False
-
-
-def resolve_active_template(
-    template_by_name: dict[str, CircuitTemplate],
-    selected_name: str,
-    *,
-    use_qasm: bool,
-    qasm_text: str,
-    parser: Callable[[str], CircuitTemplate] = parse_qasm,
-) -> tuple[CircuitTemplate, str | None]:
-    """
-    Return the template to simulate.
-
-    Uses the built-in template unless QASM override is enabled and non-empty.
-    Returns an error message string when QASM parsing fails.
-    """
-    template = template_by_name[selected_name]
-    if not use_qasm or not qasm_text.strip():
-        return template, None
-    try:
-        return parser(qasm_text), None
-    except ValueError as exc:
-        return template, str(exc)
+    session[widget_key] = schedule_name_from_query(templates, query_restore)

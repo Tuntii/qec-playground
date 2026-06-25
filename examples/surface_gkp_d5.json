@@ -1,10 +1,13 @@
 {
   "id": "surface_gkp_d5",
-  "name": "Surface-GKP distance-5",
-  "description": "Larger surface patch with GKP cat states on data qubits.",
-  "surface_distance": 5,
-  "window_size": 5,
-  "default_squeezing_db": 12.0,
-  "default_noise_p": 0.015,
-  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[25];\ncreg c[25];\n// Distance-5 surface memory\nh q[0];\ncx q[0],q[5];\ncx q[5],q[10];\n"
+  "name": "Single-chain distance-5 workload",
+  "description": "Longer single-chain schedule with deeper window chains.",
+  "parallelism": 1,
+  "windows_per_chain": 12,
+  "blocking_window_index": 6,
+  "default_processor_count": 4,
+  "default_cycle_time_us": 1.0,
+  "default_speculation_accuracy": 0.9,
+  "default_decoder_latency_rounds": 2,
+  "default_ordering_strategy": "generation_order"
 }

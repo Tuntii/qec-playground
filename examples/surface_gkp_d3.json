@@ -1,10 +1,13 @@
 {
   "id": "surface_gkp_d3",
-  "name": "Surface-GKP distance-3",
-  "description": "Minimal GKP-surface patch for teaching speculative window decoding.",
-  "surface_distance": 3,
-  "window_size": 4,
-  "default_squeezing_db": 10.0,
-  "default_noise_p": 0.02,
-  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[9];\ncreg c[9];\n// Surface-GKP distance-3 stabilizer layout\nh q[0];\ncx q[0],q[1];\ncx q[1],q[2];\n"
+  "name": "Single-chain distance-3 workload",
+  "description": "Minimal single-chain lattice surgery schedule for teaching window decoding.",
+  "parallelism": 1,
+  "windows_per_chain": 8,
+  "blocking_window_index": 4,
+  "default_processor_count": 2,
+  "default_cycle_time_us": 1.0,
+  "default_speculation_accuracy": 0.9,
+  "default_decoder_latency_rounds": 2,
+  "default_ordering_strategy": "shallow_first"
 }

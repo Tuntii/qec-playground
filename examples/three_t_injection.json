@@ -1,0 +1,13 @@
+{
+  "id": "three_t_injection",
+  "name": "Three parallel T-gate injections",
+  "description": "Paper default lattice surgery workload (arXiv:2606.24048).",
+  "parallelism": 3,
+  "windows_per_chain": 10,
+  "blocking_window_index": 5,
+  "default_processor_count": 4,
+  "default_cycle_time_us": 1.0,
+  "default_speculation_accuracy": 0.9,
+  "default_decoder_latency_rounds": 2,
+  "default_ordering_strategy": "shallow_first"
+}

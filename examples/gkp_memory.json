@@ -1,10 +1,13 @@
 {
   "id": "gkp_memory",
-  "name": "GKP memory mode",
-  "description": "Single-logical GKP memory with periodic stabilizer checks.",
-  "surface_distance": 3,
-  "window_size": 3,
-  "default_squeezing_db": 8.0,
-  "default_noise_p": 0.03,
-  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[5];\ncreg c[5];\n// GKP memory idle\nid q[0];\n"
+  "name": "Slow-gate two-chain workload",
+  "description": "Slow gate speed (2µs cycle) with two parallel chains.",
+  "parallelism": 2,
+  "windows_per_chain": 8,
+  "blocking_window_index": 4,
+  "default_processor_count": 4,
+  "default_cycle_time_us": 2.0,
+  "default_speculation_accuracy": 0.9,
+  "default_decoder_latency_rounds": 2,
+  "default_ordering_strategy": "shallow_first"
 }

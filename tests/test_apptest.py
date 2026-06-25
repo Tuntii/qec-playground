@@ -23,15 +23,14 @@ def test_apptest_loads_without_exception(capsys):
     assert at.title[0].value == "QEC-Playground"
     labels = [b.label for b in at.button]
     assert "Run Simulation" in labels
-    assert "Compare with naive decoder" in labels
     assert len(at.selectbox) >= 1
 
 
-def test_apptest_query_restores_circuit_select(capsys):
+def test_apptest_query_restores_schedule_select(capsys):
     at = AppTest.from_file(str(APP_PATH))
-    at.query_params["circuit"] = "surface_gkp_d5"
+    at.query_params["schedule"] = "surface_gkp_d5"
     at.run(timeout=30)
     print(f"query_exception_count: {len(at.exception)}")
     print(f"query_select_value: {at.selectbox[0].value}")
     assert len(at.exception) == 0
-    assert at.selectbox[0].value == "Surface-GKP distance-5"
+    assert at.selectbox[0].value == "Single-chain distance-5 workload"

@@ -1,10 +1,13 @@
 {
   "id": "noisy_gkp_link",
-  "name": "Noisy GKP lattice link",
-  "description": "Two GKP nodes linked via CV entangling for surface surgery preview.",
-  "surface_distance": 4,
-  "window_size": 6,
-  "default_squeezing_db": 9.0,
-  "default_noise_p": 0.05,
-  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[11];\ncreg c[11];\n// Lattice link\nh q[0];\ncx q[0],q[1];\ncz q[1],q[2];\n"
+  "name": "Low-accuracy speculative stress test",
+  "description": "Three chains with low speculation accuracy to expose restart/UI costs.",
+  "parallelism": 3,
+  "windows_per_chain": 10,
+  "blocking_window_index": 5,
+  "default_processor_count": 2,
+  "default_cycle_time_us": 1.0,
+  "default_speculation_accuracy": 0.55,
+  "default_decoder_latency_rounds": 3,
+  "default_ordering_strategy": "deep_first"
 }

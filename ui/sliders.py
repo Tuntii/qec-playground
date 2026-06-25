@@ -1,65 +1,61 @@
-"""Streamlit sidebar parameter controls."""
+"""Streamlit sidebar — arXiv:2606.24048 paper parameters."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 import streamlit as st
 
-from ui.circuit_loader import CircuitTemplate
-
-
-@dataclass(frozen=True)
-class SimulationParams:
-    squeezing_db: float
-    noise_p: float
-    skip_threshold: float
-    shots: int
-    window_size: int
-    surface_distance: int
-    seed: int
-    circuit_id: str
-    circuit_name: str
+from ui.schedule_loader import ScheduleTemplate
+from ui.sim_params import SimulationParams, params_from_query
 
 
 def render_sidebar(
-    template: CircuitTemplate,
+    template: ScheduleTemplate,
     query: dict[str, Any] | None = None,
 ) -> SimulationParams:
-    """Render MVP sliders and return simulation parameters."""
-    st.sidebar.header("Simulation parameters")
+    st.sidebar.header("Paper parameters (Li & Martonosi, arXiv:2606.24048)")
 
     initial = params_from_query(query, template) if query else None
-    squeezing_db = st.sidebar.slider(
-        "GKP squeezing (dB)",
-        min_value=5.0,
-        max_value=20.0,
-        value=float(initial.squeezing_db if initial else template.default_squeezing_db),
-        step=0.5,
+    processor_count = st.sidebar.slider(
+        "Decoder processors",
+        min_value=1,
+        max_value=8,
+        value=int(initial.processor_count if initial else template.default_processor_count),
+        step=1,
     )
-    skip_threshold = st.sidebar.slider(
-        "Skip threshold",
+    default_cycle = initial.cycle_time_us if initial else template.default_cycle_time_us
+    gate_speed = st.sidebar.selectbox(
+        "Gate speed (cycle time)",
+        options=[("Fast (1µs)", 1.0), ("Slow (2µs)", 2.0)],
+        index=0 if default_cycle <= 1.0 else 1,
+        format_func=lambda x: x[0],
+    )
+    cycle_time_us = float(gate_speed[1])
+    speculation_accuracy = st.sidebar.slider(
+        "Speculation accuracy",
         min_value=0.0,
         max_value=1.0,
-        value=float(initial.skip_threshold if initial else 0.7),
+        value=float(initial.speculation_accuracy if initial else template.default_speculation_accuracy),
         step=0.05,
     )
-    noise_p = st.sidebar.slider(
-        "Noise level",
-        min_value=0.0,
-        max_value=0.15,
-        value=float(initial.noise_p if initial else template.default_noise_p),
-        step=0.005,
-        format="%.3f",
+    decoder_latency_rounds = st.sidebar.slider(
+        "Decoder latency (rounds)",
+        min_value=1,
+        max_value=6,
+        value=int(initial.decoder_latency_rounds if initial else template.default_decoder_latency_rounds),
+        step=1,
     )
-    shots = st.sidebar.slider(
-        "Shot count",
-        min_value=100,
-        max_value=3000,
-        value=int(initial.shots if initial else 800),
-        step=100,
-    )
+    ordering_strategy = st.sidebar.selectbox(
+        "Ordering strategy",
+        options=[
+            ("Shallow speculations first", "shallow_first"),
+            ("Deep speculations first", "deep_first"),
+            ("Window generation order", "generation_order"),
+        ],
+        index=_ordering_index(initial or template),
+        format_func=lambda x: x[0],
+    )[1]
     seed = st.sidebar.number_input(
         "Random seed",
         min_value=0,
@@ -68,28 +64,22 @@ def render_sidebar(
     )
 
     return SimulationParams(
-        squeezing_db=squeezing_db,
-        noise_p=noise_p,
-        skip_threshold=skip_threshold,
-        shots=shots,
-        window_size=int(initial.window_size if initial else template.window_size),
-        surface_distance=int(initial.surface_distance if initial else template.surface_distance),
+        processor_count=int(processor_count),
+        cycle_time_us=cycle_time_us,
+        speculation_accuracy=float(speculation_accuracy),
+        decoder_latency_rounds=int(decoder_latency_rounds),
+        ordering_strategy=str(ordering_strategy),
         seed=int(seed),
-        circuit_id=str(initial.circuit_id if initial else template.id),
-        circuit_name=template.name,
+        schedule_id=template.id,
+        schedule_name=template.name,
     )
 
 
-def params_from_query(query: dict[str, Any], template: CircuitTemplate) -> SimulationParams:
-    """Build params from URL query dict (share link restore)."""
-    return SimulationParams(
-        squeezing_db=float(query.get("sq", template.default_squeezing_db)),
-        noise_p=float(query.get("noise", template.default_noise_p)),
-        skip_threshold=float(query.get("skip", 0.7)),
-        shots=int(query.get("shots", 800)),
-        window_size=int(query.get("win", template.window_size)),
-        surface_distance=int(query.get("dist", template.surface_distance)),
-        seed=int(query.get("seed", 42)),
-        circuit_id=str(query.get("circuit", template.id)),
-        circuit_name=template.name,
+def _ordering_index(params: SimulationParams | ScheduleTemplate) -> int:
+    strategy = (
+        params.ordering_strategy
+        if isinstance(params, SimulationParams)
+        else params.default_ordering_strategy
     )
+    mapping = {"shallow_first": 0, "deep_first": 1, "generation_order": 2}
+    return mapping.get(strategy, 0)

@@ -11,32 +11,33 @@ from urllib.parse import urlencode
 import pandas as pd
 import plotly.graph_objects as go
 
-from ui.sliders import SimulationParams
+from ui.sim_params import SimulationParams
 
 
 def results_to_dataframe(result: dict[str, Any], params: SimulationParams) -> pd.DataFrame:
     """Flatten simulation result into a single-row metrics DataFrame."""
-    gkp = result["gkp"]
-    dec = result["decoder"]
+    spec = result["speculative"]
+    nonspec = result["non_speculative"]
+    comp = result["comparison"]
     row = {
-        "circuit_id": params.circuit_id,
-        "circuit_name": params.circuit_name,
-        "squeezing_db": params.squeezing_db,
-        "noise_p": params.noise_p,
-        "skip_threshold": params.skip_threshold,
-        "shots": params.shots,
-        "window_size": params.window_size,
-        "surface_distance": params.surface_distance,
+        "schedule_id": params.schedule_id,
+        "schedule_name": params.schedule_name,
+        "processor_count": params.processor_count,
+        "cycle_time_us": params.cycle_time_us,
+        "speculation_accuracy": params.speculation_accuracy,
+        "decoder_latency_rounds": params.decoder_latency_rounds,
+        "ordering_strategy": params.ordering_strategy,
         "seed": params.seed,
-        "logical_error_rate": gkp["logical_error_rate"],
-        "physical_error_rate": gkp["physical_error_rate"],
-        "mean_fidelity": gkp["mean_fidelity"],
-        "speculative_success": dec["speculative"]["success_probability"],
-        "speculative_wait": dec["speculative"]["mean_wait_cycles"],
-        "naive_success": dec["naive"]["success_probability"],
-        "naive_wait": dec["naive"]["mean_wait_cycles"],
-        "wait_reduction": dec["wait_reduction"],
-        "success_delta": dec["success_delta"],
+        "spec_total_decoding_time_us": spec["total_decoding_time_us"],
+        "spec_average_window_backlog": spec["average_window_backlog"],
+        "spec_average_conditional_wait_time_us": spec["average_conditional_wait_time_us"],
+        "spec_ui_window_count": spec["ui_window_count"],
+        "nonspec_total_decoding_time_us": nonspec["total_decoding_time_us"],
+        "nonspec_average_window_backlog": nonspec["average_window_backlog"],
+        "nonspec_average_conditional_wait_time_us": nonspec["average_conditional_wait_time_us"],
+        "nonspec_ui_window_count": nonspec["ui_window_count"],
+        "cond_wait_reduction": comp["cond_wait_reduction"],
+        "time_delta_us": comp["time_delta_us"],
     }
     return pd.DataFrame([row])
 
@@ -54,13 +55,12 @@ def figure_to_png(fig: go.Figure) -> bytes:
 def build_share_query(params: SimulationParams) -> dict[str, str | int | float]:
     """Build URL query dict for shareable config."""
     return {
-        "circuit": params.circuit_id,
-        "sq": params.squeezing_db,
-        "noise": params.noise_p,
-        "skip": params.skip_threshold,
-        "shots": params.shots,
-        "win": params.window_size,
-        "dist": params.surface_distance,
+        "schedule": params.schedule_id,
+        "proc": params.processor_count,
+        "cycle": params.cycle_time_us,
+        "specacc": params.speculation_accuracy,
+        "latency": params.decoder_latency_rounds,
+        "order": params.ordering_strategy,
         "seed": params.seed,
     }
 

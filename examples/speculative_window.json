@@ -1,10 +1,13 @@
 {
   "id": "speculative_window",
-  "name": "Speculative window demo",
-  "description": "Tuned for visible skip-threshold effects in decoder comparison.",
-  "surface_distance": 3,
-  "window_size": 4,
-  "default_squeezing_db": 10.0,
-  "default_noise_p": 0.04,
-  "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[7];\ncreg c[7];\n// Windowed syndrome extraction\nh q[0];\nmeasure q[0] -> c[0];\n"
+  "name": "Processor-limited speculative demo",
+  "description": "Two parallel chains with few processors to expose backlog and ordering effects.",
+  "parallelism": 2,
+  "windows_per_chain": 10,
+  "blocking_window_index": 5,
+  "default_processor_count": 2,
+  "default_cycle_time_us": 1.0,
+  "default_speculation_accuracy": 0.85,
+  "default_decoder_latency_rounds": 2,
+  "default_ordering_strategy": "shallow_first"
 }

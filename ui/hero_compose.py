@@ -10,53 +10,43 @@ from plotly.subplots import make_subplots
 from ui.visualizations import build_all_charts
 
 
-def build_dashboard_hero_figure(
-    result: dict[str, Any],
-    syndromes: list,
-) -> go.Figure:
-    """2×2 dashboard preview: error rate, heatmap, success, decoder compare."""
-    charts = build_all_charts(result, syndromes)
+def build_dashboard_hero_figure(result: dict[str, Any]) -> go.Figure:
+    """2×2 dashboard preview: decode time, backlog, conditional wait, UI windows."""
+    charts = build_all_charts(result)
+    comp = result["comparison"]
     fig = make_subplots(
         rows=2,
         cols=2,
         subplot_titles=(
-            "Error rates",
-            "Syndrome heatmap",
-            "Success probability",
-            "Decoder comparison",
+            "Total decoding time",
+            "Average window backlog",
+            "Conditional wait",
+            "UI window count",
         ),
         specs=[
-            [{"type": "bar"}, {"type": "heatmap"}],
+            [{"type": "bar"}, {"type": "bar"}],
             [{"type": "bar"}, {"type": "bar"}],
         ],
         vertical_spacing=0.14,
         horizontal_spacing=0.08,
     )
 
-    err = charts["error_rate"]
-    for trace in err.data:
+    for trace in charts["decode_time"].data:
         fig.add_trace(trace, row=1, col=1)
-
-    heat = charts["syndrome_heatmap"]
-    for trace in heat.data:
+    for trace in charts["backlog"].data:
         fig.add_trace(trace, row=1, col=2)
-
-    succ = charts["success_probability"]
-    for trace in succ.data:
+    for trace in charts["cond_wait"].data:
         fig.add_trace(trace, row=2, col=1)
-
-    dec = charts["decoder_comparison"]
-    for trace in dec.data:
+    for trace in charts["ui_windows"].data:
         fig.add_trace(trace, row=2, col=2)
 
-    gkp = result["gkp"]
-    dec_metrics = result["decoder"]
+    spec = result["speculative"]
     fig.update_layout(
         title={
             "text": (
-                "QEC-Playground — Run Simulation dashboard "
-                f"(logical err {gkp['logical_error_rate']:.3f}, "
-                f"wait ↓ {dec_metrics['wait_reduction']:.0%})"
+                "QEC-Playground — speculative window decoder dashboard "
+                f"(cond wait ↓ {comp['cond_wait_reduction']:.0%}, "
+                f"spec backlog {spec['average_window_backlog']:.1f})"
             ),
             "x": 0.5,
         },

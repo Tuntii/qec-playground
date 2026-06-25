@@ -1,13 +1,9 @@
 """Tests for MVP UI helper modules."""
 
-import pytest
-
 from core.simulator import run_simulation
-from ui.circuit_loader import list_templates, load_template_by_id, parse_qasm
 from ui.bootstrap import (
-    circuit_name_from_query,
-    init_circuit_select_from_query,
-    resolve_active_template,
+    init_schedule_select_from_query,
+    schedule_name_from_query,
     take_query_restore,
 )
 from ui.export import (
@@ -18,62 +14,45 @@ from ui.export import (
     figure_to_png,
     results_to_dataframe,
 )
-from ui.sliders import SimulationParams, params_from_query
-from ui.visualizations import build_all_charts, syndrome_heatmap_matrix
+from ui.schedule_loader import list_templates, load_template_by_id
+from ui.sim_params import SimulationParams, params_from_query
+from ui.visualizations import build_all_charts
 
 
-def test_list_templates_returns_five(capsys):
+def test_list_templates_returns_schedules(capsys):
     templates = list_templates()
     print(f"template_count: {len(templates)} names={[t.name for t in templates]}")
-    assert len(templates) == 5
+    assert len(templates) >= 5
+    assert all(t.schedule.parallelism >= 1 for t in templates)
 
 
-def test_load_template_by_id():
-    template = load_template_by_id("surface_gkp_d3")
-    assert template.surface_distance == 3
-    assert template.window_size == 4
-
-
-def test_parse_qasm_extracts_qubits(capsys):
-    qasm = 'OPENQASM 2.0;\nqreg q[16];\n'
-    template = parse_qasm(qasm)
-    print(f"qasm_distance: {template.surface_distance} window: {template.window_size}")
-    assert template.surface_distance >= 3
-    assert template.source == "qasm"
-
-
-def test_parse_qasm_empty_raises():
-    with pytest.raises(ValueError):
-        parse_qasm("   ")
+def test_load_template_by_id(capsys):
+    template = load_template_by_id("three_t_injection")
+    print(f"parallelism: {template.schedule.parallelism}")
+    assert template.schedule.parallelism == 3
+    assert template.schedule.windows_per_chain == 10
 
 
 def test_build_all_charts_from_real_simulation(capsys):
-    result = run_simulation(shots=200, seed=123, include_syndromes=True)
-    charts = build_all_charts(result, result["syndromes"])
+    result = run_simulation(seed=123)
+    charts = build_all_charts(result)
     print(f"charts_count: {len(charts)}")
     assert len(charts) == 4
-    assert result["gkp"]["logical_error_rate"] >= 0.0
-
-
-def test_syndrome_heatmap_matrix_shape():
-    result = run_simulation(shots=50, seed=1, include_syndromes=True)
-    hist, x_centers, y_centers = syndrome_heatmap_matrix(result["syndromes"], bins=8)
-    assert hist.shape == (8, 8)
-    assert len(x_centers) == 8
+    assert "decode_time" in charts
+    assert result["speculative"]["total_decoding_time_us"] > 0.0
 
 
 def test_export_csv_and_share_url(capsys):
-    result = run_simulation(shots=100, seed=7)
+    result = run_simulation(seed=7)
     params = SimulationParams(
-        squeezing_db=10.0,
-        noise_p=0.02,
-        skip_threshold=0.7,
-        shots=100,
-        window_size=4,
-        surface_distance=3,
+        processor_count=4,
+        cycle_time_us=1.0,
+        speculation_accuracy=0.9,
+        decoder_latency_rounds=2,
+        ordering_strategy="shallow_first",
         seed=7,
-        circuit_id="surface_gkp_d3",
-        circuit_name="Surface-GKP distance-3",
+        schedule_id="three_t_injection",
+        schedule_name="Three parallel T-gate injections",
     )
     df = results_to_dataframe(result, params)
     csv_bytes = dataframe_to_csv(df)
@@ -84,60 +63,59 @@ def test_export_csv_and_share_url(capsys):
     assert len(csv_bytes) > 50
     assert url.startswith("http")
     assert len(token) > 10
-    assert restored["circuit"] == "surface_gkp_d3"
+    assert restored["schedule"] == "three_t_injection"
 
 
 def test_params_from_query_overrides(capsys):
     template = load_template_by_id("gkp_memory")
     params = params_from_query(
         {
-            "sq": "11.5",
-            "noise": "0.04",
-            "skip": "0.6",
-            "shots": "500",
+            "proc": "2",
+            "cycle": "2.0",
+            "specacc": "0.75",
+            "latency": "3",
+            "order": "deep_first",
             "seed": "99",
-            "win": "6",
-            "dist": "5",
-            "circuit": "surface_gkp_d5",
+            "schedule": "surface_gkp_d5",
         },
         template,
     )
     print(
-        f"query_params: sq={params.squeezing_db} shots={params.shots} "
-        f"win={params.window_size} dist={params.surface_distance} circuit={params.circuit_id}"
+        f"query_params: proc={params.processor_count} cycle={params.cycle_time_us} "
+        f"order={params.ordering_strategy} schedule={params.schedule_id}"
     )
-    assert params.squeezing_db == 11.5
-    assert params.shots == 500
+    assert params.processor_count == 2
+    assert params.cycle_time_us == 2.0
+    assert params.speculation_accuracy == 0.75
     assert params.seed == 99
-    assert params.window_size == 6
-    assert params.surface_distance == 5
-    assert params.circuit_id == "surface_gkp_d5"
+    assert params.ordering_strategy == "deep_first"
+    assert params.schedule_id == "surface_gkp_d5"
 
 
 def test_figure_to_png_exports_bytes(capsys):
-    result = run_simulation(shots=100, seed=5, include_syndromes=True)
-    charts = build_all_charts(result, result["syndromes"])
-    png_error = figure_to_png(charts["error_rate"])
-    png_success = figure_to_png(charts["success_probability"])
+    result = run_simulation(seed=5)
+    charts = build_all_charts(result)
+    png_decode = figure_to_png(charts["decode_time"])
+    png_wait = figure_to_png(charts["cond_wait"])
     print(
-        f"png_error_len: {len(png_error)} png_success_len: {len(png_success)} "
-        f"png_error_magic: {png_error[:8]}"
+        f"png_decode_len: {len(png_decode)} png_wait_len: {len(png_wait)} "
+        f"png_decode_magic: {png_decode[:8]}"
     )
-    assert len(png_error) > 1000
-    assert len(png_success) > 1000
-    assert png_error[:8] == b"\x89PNG\r\n\x1a\n"
+    assert len(png_decode) > 1000
+    assert len(png_wait) > 1000
+    assert png_decode[:8] == b"\x89PNG\r\n\x1a\n"
 
 
-def test_circuit_name_from_query(capsys):
+def test_schedule_name_from_query(capsys):
     templates = list_templates()
-    name = circuit_name_from_query(templates, {"circuit": "surface_gkp_d5"})
-    print(f"query_circuit_name: {name}")
-    assert name == "Surface-GKP distance-5"
+    name = schedule_name_from_query(templates, {"schedule": "surface_gkp_d5"})
+    print(f"query_schedule_name: {name}")
+    assert name == "Single-chain distance-5 workload"
 
 
 def test_take_query_restore_once(capsys):
     session: dict = {}
-    q = {"circuit": "gkp_memory", "sq": "10"}
+    q = {"schedule": "gkp_memory", "proc": "4"}
     first = take_query_restore(session, q)
     second = take_query_restore(session, q)
     print(f"query_restore_first: {first is not None} second: {second is None}")
@@ -145,43 +123,15 @@ def test_take_query_restore_once(capsys):
     assert second is None
 
 
-def test_init_circuit_select_from_query(capsys):
+def test_init_schedule_select_from_query(capsys):
     templates = list_templates()
     session: dict = {}
-    init_circuit_select_from_query(
+    init_schedule_select_from_query(
         session,
         templates,
-        {"circuit": "surface_gkp_d5"},
+        {"schedule": "surface_gkp_d5"},
     )
-    print(f"circuit_select_seed: {session.get('circuit_select')}")
-    assert session["circuit_select"] == "Surface-GKP distance-5"
-    init_circuit_select_from_query(session, templates, {"circuit": "gkp_memory"})
-    assert session["circuit_select"] == "Surface-GKP distance-5"
-
-
-def test_resolve_active_template_uses_builtin_when_qasm_off(capsys):
-    templates = list_templates()
-    by_name = {t.name: t for t in templates}
-    template, err = resolve_active_template(
-        by_name,
-        "Surface-GKP distance-3",
-        use_qasm=False,
-        qasm_text='OPENQASM 2.0;\nqreg q[99];\n',
-    )
-    print(f"builtin_template: {template.id} err={err}")
-    assert err is None
-    assert template.id == "surface_gkp_d3"
-
-
-def test_resolve_active_template_qasm_when_enabled(capsys):
-    templates = list_templates()
-    by_name = {t.name: t for t in templates}
-    template, err = resolve_active_template(
-        by_name,
-        "Surface-GKP distance-3",
-        use_qasm=True,
-        qasm_text='OPENQASM 2.0;\nqreg q[16];\n',
-    )
-    print(f"qasm_template: {template.id} source={template.source}")
-    assert err is None
-    assert template.source == "qasm"
+    print(f"schedule_select_seed: {session.get('schedule_select')}")
+    assert session["schedule_select"] == "Single-chain distance-5 workload"
+    init_schedule_select_from_query(session, templates, {"schedule": "gkp_memory"})
+    assert session["schedule_select"] == "Single-chain distance-5 workload"

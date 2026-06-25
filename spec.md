@@ -1,98 +1,84 @@
 # QEC-Playground — Project Specification
-**Versiyon:** 1.0 (25 Haziran 2026)  
-**Sahip:** Tunay  
-**Amaç:** 24 Haziran 2026 quant-ph makalesini (Surface-GKP + Speculative Window Decoders) herkesin kullanabileceği interaktif bir tool’a dönüştürmek.
+**Version:** 3.0 (25 June 2026)  
+**Owner:** Tunay  
+**Goal:** First open-source implementation of an interactive lightweight round-stepped playground for the speculative window decoder analysis framework in *An Analysis of Speculative Window Decoders for Quantum Error Correction* (Jocelyn Li and Margaret Martonosi, arXiv:2606.24048).
 
-## 1. Proje Tanımı
-**Adı:** QEC-Playground (alternatif: SkipGKP, GKP-Visualizer)  
-**Tagline:** "Surface-GKP kodlarında 'Ne zaman skip etsem?' sorusunun canlı cevabı. QuTiP + güzel UI ile 2 dakikada simülasyon."
+## 1. Project definition
+**Name:** QEC-Playground  
+**Tagline:** First open-source interactive playground for Li & Martonosi speculative window decoder sensitivity analysis.
 
-**Neden yapıyoruz?**  
-- Makale çok taze, henüz implementasyon yok → ilk olmak büyük avantaj.  
-- Quantum meraklıları ve eğitimciler için playground tarzı tool’lar çok paylaşılıyor.  
-- 8-10 günde MVP bitirip demo video atınca 7-18k star gerçekçi.
+**Positioning (accurate scope):**
+- **This project:** first open-source tool implementing the Li & Martonosi (arXiv:2606.24048) analysis framework as a lightweight round-stepped scheduling model with Streamlit/CLI.
+- **Distinct from the full SWIPER-SIM** in [jviszlai/swiper](https://github.com/jviszlai/swiper) (ISCA 2025 SWIPER); Li & Martonosi used a modified SWIPER-SIM internally and do not publish that source.
+- **Model level:** abstract round-stepped scheduling (window states, speculation, processor queue, conditional wait) — not physical syndrome graphs or matching decoders.
 
-## 2. Hedef Kullanıcılar
-- Quantum computing öğrencileri ve hobi sahipleri
-- Qiskit/Cirq kullanan geliştiriciler
-- Araştırmacılar (hızlı parametre denemek isteyenler)
+**Why:**  
+- Li & Martonosi paper is fresh (submitted 23 Jun 2026) and releases no code for their modified SWIPER-SIM experiments.  
+- Researchers need an open playground to explore processor count, gate speed, speculation accuracy, and ordering strategies.  
+- CLI + Streamlit drive the same `run_simulation()` entry point for reproducible metrics.
 
-## 3. Özellikler
+## 2. Target users
+- Quantum error correction students and researchers
+- Architects studying speculative window decoders and lattice surgery workloads
+- Anyone comparing speculative vs non-speculative parallel decoding under paper sensitivity axes
 
-### MVP (Gün 8-10’da bitmeli)
-- [x] Circuit yükleme (hazır 5 tane GKP-surface template + QASM import)
-- [x] Parametre slider’ları: GKP squeezing (dB), skip threshold, noise level, shot sayısı
-- [x] Speculative Window Decoder simülasyonu (makaledeki ana algoritma)
-- [x] Gerçek zamanlı grafikler: Logical error rate, syndrome heatmap, success probability chart (Plotly)
-- [x] “Run Simulation” + “Compare with naive decoder” butonu
-- [x] Sonuç export (PNG + CSV + “Share this config” linki)
+## 3. Features
 
-### MVP Durum (25 Haziran 2026)
-- **Çekirdek:** `core/simulator.py`, `core/decoder.py` — QuTiP GKP + speculative/naive karşılaştırma
-- **UI:** `streamlit run app.py` — slider’lar, 5 template, QASM import, Plotly grafikler, export
-- **CLI:** `python app.py` — headless metin çıktısı
-- **Launch:** `README.md`, `assets/hero.png`, `.streamlit/config.toml`, HF/Streamlit Cloud deploy hazır (`QEC_DEMO_BASE_URL` share linkleri)
+### MVP (first open-source playground)
+- [x] Lattice surgery schedule loading (JSON templates; default three parallel T-gate injections)
+- [x] Paper parameter sliders/CLI: processors, gate speed (1µs / 2µs), speculation accuracy, decoder latency, ordering strategy
+- [x] Round-stepped speculative window simulator (speculative + non-speculative modes)
+- [x] Plotly charts: total decoding time, window backlog, conditional wait, UI window count
+- [x] `python app.py` CLI with argparse flags matching paper inputs
+- [x] Export: PNG + CSV + shareable config URL
+- [x] MIT LICENSE with academic citation note
 
-### v1.0 (Sonraki 1 hafta)
-- Karşılaştırma modu (distance-5 vs distance-7)
-- Preset’ler + “Random circuit generator”
-- Dark theme + quantum aesthetic
-- “Export as Qiskit/Cirq code” butonu
+### Core status (25 June 2026)
+- **Core:** `core/schedule.py`, `core/swiper_sim.py`, `core/simulator.py`
+- **UI:** `streamlit run app.py` — schedule picker, paper sliders, Plotly charts, export
+- **CLI:** `python app.py` — headless text report via `ui/sim_params.py`
+- **Legacy:** `core/legacy_gkp.py` — isolated QuTiP GKP module (not primary path)
 
-### Gelecek (contributor çekmek için)
-- Adversarial error enjeksiyonu
-- Leaderboard (“En iyi threshold’u bulanlar”)
-- Multi-user collab modu
+### Future
+- Additional benchmark schedules from the paper
+- Program trace / window graph visualization
+- Batch parameter sweeps and CSV export
 
-## 4. Tech Stack
-- **Simülasyon:** QuTiP (temel) + NumPy/SciPy  
-- **UI:** Streamlit (en hızlı) → istersen Next.js + shadcn + Plotly  
-- **Grafikler:** Plotly + Matplotlib animasyon  
-- **Diğer:** Streamlit Community Cloud / Hugging Face Spaces (ücretsiz deploy)  
-- **Kurulum:** `pip install -r requirements.txt && streamlit run app.py`
+## 4. Tech stack
+- **Simulation:** NumPy (round-stepped SWIPER-SIM-style model)
+- **UI:** Streamlit + Plotly
+- **Deploy:** Streamlit Community Cloud / Hugging Face Spaces
+- **Setup:** `pip install -r requirements.txt && streamlit run app.py`
 
-## 5. Klasör Yapısı
+## 5. Folder layout
 ```
 qec-playground/
+├── LICENSE
 ├── app.py
 ├── core/
-│   ├── simulator.py      # QuTiP GKP + surface
-│   ├── decoder.py        # Speculative window logic
-│   └── metrics.py
+│   ├── schedule.py
+│   ├── swiper_sim.py
+│   ├── simulator.py
+│   └── legacy_gkp.py
 ├── ui/
+│   ├── sim_params.py
 │   ├── sliders.py
-│   ├── circuit_loader.py
-│   └── visualizations.py
-├── examples/             # 5 hazır JSON
-├── assets/               # README GIF’leri
-├── requirements.txt
-├── README.md
-└── spec.md               # ← bu dosya
+│   ├── visualizations.py
+│   └── export.py
+├── examples/
+└── tests/
 ```
 
-## 6. 10 Gün Roadmap
-- **Gün 1-2:** QuTiP kurulumu + basit GKP sim + slider’lar  
-- **Gün 3-4:** Speculative decoder kodlaması + heatmap  
-- **Gün 5-6:** Plotly grafikleri + UI polish  
-- **Gün 7:** Örnekler + export  
-- **Gün 8:** README + ilk demo video  
-- **Gün 9:** Hugging Face deploy + test  
-- **Gün 10:** X + Reddit paylaşımı
+## 6. Paper metrics (acceptance)
+| Metric | Description |
+|--------|-------------|
+| `total_decoding_time_us` | Rounds × cycle time until all windows verified |
+| `average_window_backlog` | Mean count of active (non-verified) windows |
+| `average_conditional_wait_time_us` | Mean blocking wait on Conditional-S deps |
+| `ui_window_count` | Speculative decode sessions on unverified deps |
 
-## 7. README İçeriği (kopyala-yapıştır hazır)
-- Hero GIF (slider oynatınca grafik değişiyor)
-- “24 Haziran 2026 arXiv makalesinin ilk açık implementasyonu”
-- Install komutu
-- Interactive demo linki
-- “Star’ını ver ki quantum dünyasında ilk senin tool’un ünlensin 🔥”
+Under default fast-gate parameters (4 processors, 1µs, 90% accuracy, shallow_first), speculative mode must complete and report lower average conditional wait than non-speculative.
 
-## 8. Launch Planı (Stars için)
-1. Repo aç + bu spec + README  
-2. İlk X thread’i: “24 Haziran makalesini 9 günde tool yaptım → canlı oynatın” + GIF  
-3. Paylaşılacak yerler: r/QuantumComputing, Qiskit Discord, Cirq repo, Quantum Computing StackExchange  
-4. İlk hafta hedef: 500-1k star
-
-## 9. Riskler & Çözümler
-- QuTiP yavaşlar → küçük circuit’lerle başla, sonra optimize et.  
-- Makale detayı eksik → ilk versiyonda basit threshold simülasyonu, sonra derinleştir.  
-- Görsellik zayıf kalırsa → Plotly + custom CSS ile çöz.
+## 7. References
+- Li & Martonosi, *An Analysis of Speculative Window Decoders for Quantum Error Correction*, arXiv:2606.24048 (QCCC-26 workshop)
+- Viszlai et al., SWIPER (ISCA 2025) — [github.com/jviszlai/swiper](https://github.com/jviszlai/swiper)
