@@ -36,6 +36,7 @@ def _display_results(result: dict[str, Any], params: Any) -> None:
         default_share_base_url,
         encode_config_payload,
         figure_to_png,
+        png_export_available,
         results_to_dataframe,
     )
     from ui.result_summary import result_metric_values
@@ -74,20 +75,26 @@ def _display_results(result: dict[str, Any], params: Any) -> None:
         mime="text/csv",
     )
 
-    png_decode = figure_to_png(charts["decode_time"])
-    st.download_button(
-        "Download decode-time PNG",
-        data=png_decode,
-        file_name="decode_time.png",
-        mime="image/png",
-    )
-    png_wait = figure_to_png(charts["cond_wait"])
-    st.download_button(
-        "Download conditional-wait PNG",
-        data=png_wait,
-        file_name="conditional_wait.png",
-        mime="image/png",
-    )
+    if png_export_available():
+        png_decode = figure_to_png(charts["decode_time"])
+        st.download_button(
+            "Download decode-time PNG",
+            data=png_decode,
+            file_name="decode_time.png",
+            mime="image/png",
+        )
+        png_wait = figure_to_png(charts["cond_wait"])
+        st.download_button(
+            "Download conditional-wait PNG",
+            data=png_wait,
+            file_name="conditional_wait.png",
+            mime="image/png",
+        )
+    else:
+        st.caption(
+            "PNG chart export is unavailable here (Kaleido/Chrome not installed). "
+            "CSV export and on-screen charts still work."
+        )
 
     st.text_input("Share this config (URL)", value=share_url)
     st.text_input("Share token (base64)", value=share_token)

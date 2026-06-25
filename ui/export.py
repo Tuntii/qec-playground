@@ -47,9 +47,32 @@ def dataframe_to_csv(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
 
 
+class PngExportUnavailable(RuntimeError):
+    """Raised when Kaleido/Chrome is not available for PNG rendering."""
+
+
+_png_export_ok: bool | None = None
+
+
+def png_export_available() -> bool:
+    """Probe once whether Plotly can render PNG (Kaleido + Chrome)."""
+    global _png_export_ok
+    if _png_export_ok is not None:
+        return _png_export_ok
+    try:
+        go.Figure().to_image(format="png", scale=1)
+        _png_export_ok = True
+    except Exception:
+        _png_export_ok = False
+    return _png_export_ok
+
+
 def figure_to_png(fig: go.Figure) -> bytes:
     """Render a Plotly figure to PNG bytes."""
-    return fig.to_image(format="png", scale=2)
+    try:
+        return fig.to_image(format="png", scale=2)
+    except Exception as exc:
+        raise PngExportUnavailable(str(exc)) from exc
 
 
 def build_share_query(params: SimulationParams) -> dict[str, str | int | float]:
