@@ -196,9 +196,6 @@ If you use this software in academic work, please cite **both** the analysis pap
 ---
 
 <div align="center">
-
-### Star'ını ver ki quantum dünyasında ilk senin tool'un ünlensin 🔥
-
 **[⭐ Star on GitHub](https://github.com/Tuntii/qec-playground)** · **[🤗 Live Demo](https://huggingface.co/spaces/Tunti35/qec-playground)** · **[📄 Paper](https://arxiv.org/abs/2606.24048)**
 
 MIT — see [LICENSE](LICENSE). Research prototype — not production fault-tolerance tooling.
